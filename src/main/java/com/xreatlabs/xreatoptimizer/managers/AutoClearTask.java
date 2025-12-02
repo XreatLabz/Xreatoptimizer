@@ -15,6 +15,9 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Manages automatic clearing of excess entities
+ * 
+ * IMPORTANT: This task is DISABLED by default to prevent any interference with gameplay.
+ * It only clears truly excessive entities and never touches player-important entities.
  */
 public class AutoClearTask {
     private final XreatOptimizer plugin;
@@ -29,7 +32,13 @@ public class AutoClearTask {
      * Starts the auto clear task system
      */
     public void start() {
-        int intervalSeconds = plugin.getConfig().getInt("clear_interval_seconds", 300); // 5 minutes default
+        // Check if auto-clear is enabled in config (DISABLED by default)
+        if (!plugin.getConfig().getBoolean("auto_clear.enabled", false)) {
+            LoggerUtils.info("Auto clear task is disabled in config. Skipping start.");
+            return;
+        }
+        
+        int intervalSeconds = plugin.getConfig().getInt("clear_interval_seconds", 600); // 10 minutes default
         
         clearTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
             plugin,
@@ -59,6 +68,11 @@ public class AutoClearTask {
     private void runClearCycle() {
         if (!isRunning) return;
         
+        // Double-check config in case it was changed
+        if (!plugin.getConfig().getBoolean("auto_clear.enabled", false)) {
+            return;
+        }
+        
         LoggerUtils.debug("Running auto clear cycle...");
         
         int totalRemoved = 0;
@@ -80,60 +94,41 @@ public class AutoClearTask {
     
     /**
      * Clears excess entities in a specific world based on thresholds
+     * 
+     * IMPORTANT: This method is very conservative and only removes truly excessive
+     * entities that don't affect gameplay. It NEVER removes:
+     * - Player-placed entities (armor stands, item frames, paintings, etc.)
+     * - Vehicles (boats, minecarts)
+     * - Player-created entities (iron golems, snow golems)
+     * - Boss mobs
+     * - Named entities
+     * - Villagers or other important gameplay mobs
+     * - Tamed animals
      */
     private int clearExcessEntitiesInWorld(World world) {
+        // Safety check - if auto clear is somehow running when disabled, stop
+        if (!plugin.getConfig().getBoolean("auto_clear.enabled", false)) {
+            return 0;
+        }
+        
         int totalRemoved = 0;
         
-        // Get thresholds from config
-        int passiveLimit = plugin.getConfig().getInt("optimization.entity_limits.passive", 200);
-        int hostileLimit = plugin.getConfig().getInt("optimization.entity_limits.hostile", 150);
-        int itemLimit = plugin.getConfig().getInt("optimization.entity_limits.item", 1000);
-        
-        // Define entity types to clear (excluding DROPPED_ITEM - now handled by ItemDropTracker)
-        Map<EntityType, Integer> limits = Map.of(
-            EntityType.EXPERIENCE_ORB, itemLimit,
-            EntityType.ARROW, 50, // Arrows typically don't persist long
-            EntityType.SPECTRAL_ARROW, 50,
-            EntityType.ENDER_PEARL, 20,
-            EntityType.SNOWBALL, 20,
-            EntityType.EGG, 20
-        );
-        
-        // Process each entity type with limits
-        for (Map.Entry<EntityType, Integer> entry : limits.entrySet()) {
-            EntityType type = entry.getKey();
-            int limit = entry.getValue();
-            
-            int removed = EntityUtils.removeExcessEntities(world, type, limit);
-            totalRemoved += removed;
+        // ONLY clear stuck arrows on the ground (very high threshold)
+        // These are arrows that have been in the world for a long time
+        int arrowLimit = plugin.getConfig().getInt("auto_clear.arrow_limit", 500);
+        if (arrowLimit > 0) {
+            totalRemoved += EntityUtils.removeExcessEntities(world, EntityType.ARROW, arrowLimit);
+            totalRemoved += EntityUtils.removeExcessEntities(world, EntityType.SPECTRAL_ARROW, arrowLimit);
         }
         
-        // Clear excess passive mobs (animals, ambient mobs, etc.)
-        for (EntityType passive : Arrays.asList(
-                EntityType.PIG, EntityType.COW, EntityType.SHEEP, EntityType.CHICKEN,
-                EntityType.MUSHROOM_COW, EntityType.RABBIT, EntityType.HORSE, EntityType.DONKEY,
-                EntityType.MULE, EntityType.LLAMA, EntityType.CAT, EntityType.OCELOT,
-                EntityType.PARROT, EntityType.VILLAGER, EntityType.SNOWMAN, EntityType.IRON_GOLEM
-        )) {
-            int limit = plugin.getConfig().getInt("optimization.entity_limits.passive", 200);
-            int removed = EntityUtils.removeExcessEntities(world, passive, limit);
-            totalRemoved += removed;
-        }
-        
-        // Clear excess hostile mobs
-        for (EntityType hostile : Arrays.asList(
-                EntityType.ZOMBIE, EntityType.SKELETON, EntityType.CREEPER, EntityType.SPIDER,
-                EntityType.ENDERMAN, EntityType.SLIME, EntityType.ENDER_DRAGON, EntityType.WITHER,
-                EntityType.BLAZE, EntityType.CAVE_SPIDER, EntityType.GHAST, EntityType.MAGMA_CUBE,
-                EntityType.ZOMBIFIED_PIGLIN, EntityType.WITCH, EntityType.WITHER_SKELETON, EntityType.STRAY,
-                EntityType.HUSK, EntityType.ZOMBIE_VILLAGER, EntityType.PHANTOM, EntityType.DROWNED,
-                EntityType.PILLAGER, EntityType.VINDICATOR, EntityType.EVOKER,
-                EntityType.ILLUSIONER, EntityType.RAVAGER
-        )) {
-            int limit = plugin.getConfig().getInt("optimization.entity_limits.hostile", 150);
-            int removed = EntityUtils.removeExcessEntities(world, hostile, limit);
-            totalRemoved += removed;
-        }
+        // Note: We intentionally do NOT clear:
+        // - Passive mobs (players may have farms or pets)
+        // - Hostile mobs (would break mob farms and gameplay)
+        // - Projectiles in flight (would break gameplay)
+        // - Any player-placed or player-created entities
+        // - Villagers, wandering traders, etc.
+        // - Experience orbs (players earned them)
+        // - Dropped items (handled separately by ItemDropTracker with warnings)
         
         return totalRemoved;
     }

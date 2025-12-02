@@ -3,13 +3,37 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
+// Load environment variables from .env file
+def envFile = file('.env')
+if (envFile.exists()) {
+    envFile.readLines().each { line ->
+        if (line && !line.startsWith('#') && line.contains('=')) {
+            def (key, value) = line.split('=', 2)
+            if (key && value) {
+                ext.set(key.trim(), value.trim())
+            }
+        }
+    }
+}
+
 group = 'com.xreatlabs'
-version = '1.0.0'
+version = '1.1.0'
 description = 'XreatOptimizer - Advanced Minecraft Server Performance Engine'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    filteringCharset = 'UTF-8'
+    filesMatching('plugin.yml') {
+        expand(version: project.version)
+    }
 }
 
 repositories {
@@ -33,11 +57,11 @@ repositories {
 }
 
 dependencies {
-    // Spigot API
-    compileOnly 'org.spigotmc:spigot-api:1.20.4-R0.1-SNAPSHOT'
+    // Spigot API - Using 1.16.5 for Java 11 compatibility (works with 1.8-1.21.10 at runtime)
+    compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
     
-    // Optional Paper API for advanced features
-    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
+    // Paper API requires Java 17+ - commented out for Java 11 compatibility
+    // compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
     
     // Libby for runtime dependency management (commented out to allow build)
     // implementation 'org.incendo:libby-bukkit:2.2.2'
@@ -65,3 +89,44 @@ build.dependsOn shadowJar
 test {
     useJUnitPlatform()
 }
+
+// Discord webhook upload task
+task uploadToDiscord {
+    description = 'Uploads the built JAR file to Discord webhook'
+    group = 'distribution'
+    
+    dependsOn shadowJar
+    
+    doLast {
+        def webhookUrl = project.hasProperty('DISCORD_WEBHOOK_URL') ? project.DISCORD_WEBHOOK_URL : System.getenv('DISCORD_WEBHOOK_URL')
+        
+        if (!webhookUrl) {
+            logger.warn('DISCORD_WEBHOOK_URL not found in .env file or environment. Skipping Discord upload.')
+            return
+        }
+        
+        def jarFile = shadowJar.archiveFile.get().asFile
+        
+        if (!jarFile.exists()) {
+            logger.error("JAR file not found: ${jarFile.absolutePath}")
+            return
+        }
+        
+        def jarName = jarFile.name
+        def jarSize = String.format("%.2f", jarFile.length() / 1024.0)
+        
+        logger.lifecycle("Uploading ${jarName} (${jarSize} KB) to Discord...")
+        
+        exec {
+            commandLine 'curl', '-s', '-F',
+                "payload_json={\"content\":\"✅  **Build Complete!** New JAR file ready:\\n📦 `${jarName}` (${jarSize} KB)\\n🕐 Built at: ${new Date().format('yyyy-MM-dd HH:mm:ss')}\"}",
+                '-F', "file=@${jarFile.absolutePath}",
+                webhookUrl
+        }
+        
+        logger.lifecycle("Successfully uploaded ${jarName} to Discord!")
+    }
+}
+
+// Automatically upload to Discord after build
+build.finalizedBy uploadToDiscord

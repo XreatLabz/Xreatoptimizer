@@ -1,6 +1,7 @@
 package com.xreatlabs.xreatoptimizer;
 
 import com.xreatlabs.xreatoptimizer.commands.OptimizeCommand;
+import com.xreatlabs.xreatoptimizer.commands.OptimizeTabCompleter;
 import com.xreatlabs.xreatoptimizer.commands.ReportCommand;
 import com.xreatlabs.xreatoptimizer.commands.OptimizeGUICommand;
 import com.xreatlabs.xreatoptimizer.listeners.ServerEventListener;
@@ -9,6 +10,10 @@ import com.xreatlabs.xreatoptimizer.listeners.GUIClickListener;
 import com.xreatlabs.xreatoptimizer.managers.*;
 import com.xreatlabs.xreatoptimizer.storage.StatisticsStorage;
 import com.xreatlabs.xreatoptimizer.config.ConfigReloader;
+import com.xreatlabs.xreatoptimizer.config.WorldConfig;
+import com.xreatlabs.xreatoptimizer.notifications.NotificationManager;
+import com.xreatlabs.xreatoptimizer.metrics.Metrics;
+import com.xreatlabs.xreatoptimizer.web.WebDashboard;
 import com.xreatlabs.xreatoptimizer.version.VersionAdapter;
 import com.xreatlabs.xreatoptimizer.ai.AutoTuningEngine;
 // import org.incendo.libby.BukkitLibraryManager; // Commented out due to dependency issues
@@ -48,6 +53,10 @@ public class XreatOptimizer extends JavaPlugin {
     private ItemDropTracker itemDropTracker;
     private StatisticsStorage statisticsStorage;
     private ConfigReloader configReloader;
+    private WorldConfig worldConfig;
+    private NotificationManager notificationManager;
+    private Metrics metrics;
+    private WebDashboard webDashboard;
 
     @Override
     public void onEnable() {
@@ -100,8 +109,10 @@ public class XreatOptimizer extends JavaPlugin {
         // Initialize AI auto-tuning engine
         autoTuningEngine = new AutoTuningEngine(this);
         
-        // Register commands
-        getCommand("xreatopt").setExecutor(new OptimizeCommand(this));
+        // Register commands with tab completion
+        OptimizeCommand optimizeCommand = new OptimizeCommand(this);
+        getCommand("xreatopt").setExecutor(optimizeCommand);
+        getCommand("xreatopt").setTabCompleter(new OptimizeTabCompleter(this));
         getCommand("xreatreport").setExecutor(new ReportCommand(this));
         getCommand("xreatgui").setExecutor(new OptimizeGUICommand(this));
 
@@ -116,6 +127,16 @@ public class XreatOptimizer extends JavaPlugin {
         // Initialize storage and config systems
         statisticsStorage = new StatisticsStorage(this);
         configReloader = new ConfigReloader(this);
+        worldConfig = new WorldConfig(this);
+        
+        // Initialize notification manager
+        notificationManager = new NotificationManager(this);
+        
+        // Initialize metrics
+        metrics = new Metrics(this);
+        
+        // Initialize web dashboard
+        webDashboard = new WebDashboard(this);
 
         // Validate configuration
         if (!configReloader.validateConfig()) {
@@ -144,7 +165,17 @@ public class XreatOptimizer extends JavaPlugin {
         autoTuningEngine.start();
         
         // Register PlaceholderAPI expansion if available
-        // registerPlaceholderExpansion();  // Commented out due to dependency issues
+        registerPlaceholderExpansion();
+        
+        // Start web dashboard
+        if (webDashboard != null) {
+            webDashboard.start();
+        }
+        
+        // Send startup notification
+        if (notificationManager != null) {
+            notificationManager.notifyServerStart();
+        }
         
         getLogger().info("XreatOptimizer has been enabled!");
     }
@@ -223,6 +254,16 @@ public class XreatOptimizer extends JavaPlugin {
         
         if (optimizationManager != null) {
             optimizationManager.stop();
+        }
+        
+        // Shutdown metrics
+        if (metrics != null) {
+            metrics.shutdown();
+        }
+        
+        // Shutdown web dashboard
+        if (webDashboard != null) {
+            webDashboard.stop();
         }
         
         // Shutdown thread pools
@@ -345,5 +386,35 @@ public class XreatOptimizer extends JavaPlugin {
 
     public ItemDropTracker getItemDropTracker() {
         return itemDropTracker;
+    }
+
+    public WorldConfig getWorldConfig() {
+        return worldConfig;
+    }
+
+    public NotificationManager getNotificationManager() {
+        return notificationManager;
+    }
+
+    public Metrics getMetrics() {
+        return metrics;
+    }
+
+    public WebDashboard getWebDashboard() {
+        return webDashboard;
+    }
+    
+    /**
+     * Register PlaceholderAPI expansion if available
+     */
+    private void registerPlaceholderExpansion() {
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            try {
+                new com.xreatlabs.xreatoptimizer.hooks.XreatPlaceholderExpansion(this).register();
+                getLogger().info("PlaceholderAPI expansion registered successfully!");
+            } catch (Exception e) {
+                getLogger().warning("Failed to register PlaceholderAPI expansion: " + e.getMessage());
+            }
+        }
     }
 }

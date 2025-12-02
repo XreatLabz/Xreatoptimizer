@@ -218,11 +218,7 @@ public class ItemDropTracker {
                                 .map(nearby -> (Player) nearby)
                                 .forEach(player -> {
                                     // Send action bar message (compatible with Spigot)
-                                    try {
-                                        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(warningMessage));
-                                    } catch (Exception e) {
-                                        // Fallback if action bar fails
-                                    }
+                                    sendActionBar(player, warningMessage);
 
                                     // Send chat message at specific intervals (10, 5, 3, 2, 1 seconds)
                                     if (timeRemaining == 10 || timeRemaining == 5 ||
@@ -286,5 +282,21 @@ public class ItemDropTracker {
         }
         loadConfig();
         start();
+    }
+    
+    /**
+     * Version-safe action bar sender.
+     * Works on 1.8+ with fallback for servers without spigot() method.
+     */
+    private void sendActionBar(Player player, String message) {
+        try {
+            // Try Spigot's action bar method (1.9+)
+            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
+        } catch (NoSuchMethodError | NoClassDefFoundError e) {
+            // Fallback for 1.8 or servers without BungeeCord chat API
+            // Just skip action bar on older versions - chat messages still work
+        } catch (Exception e) {
+            // Any other error, silently ignore
+        }
     }
 }

@@ -12,19 +12,81 @@ optimization:
     normal: 18
     aggressive: 16
   entity_limits:
+    # These are informational limits used for monitoring only
+    # They do NOT automatically remove or block entities
     passive: 200
     hostile: 150
     item: 1000
+    # Limit for natural mob spawns (only used if limit_creature_spawns is enabled)
+    natural_spawn: 500
 
+# ============================================================================
+# ENTITY LIMITER - Controls entity spawn blocking
+# ============================================================================
+# DISABLED BY DEFAULT - Enable only if you have severe entity lag issues
+# 
+# When enabled, this will ONLY limit NATURAL mob spawns when world entity count
+# exceeds the per-world limit. It will NEVER affect:
+#   - Player-placed entities (armor stands, item frames, paintings, etc.)
+#   - Vehicles (boats, minecarts of all types)
+#   - Projectiles (arrows, snowballs, eggs, tridents, ender pearls, etc.)
+#   - Player-created entities (iron golems, snow golems, wither, etc.)
+#   - Boss mobs (wither, ender dragon, warden, elder guardian)
+#   - Villagers, wandering traders, allays
+#   - Tamed/tameable animals (wolves, cats, horses, parrots, etc.)
+#   - Named entities
+#   - Spawner spawns, breeding, spawn eggs, or any player-triggered spawns
+#   - Dropped items or experience orbs
+entity_limiter:
+  # Set to true to enable spawn limiting (DISABLED by default for safety)
+  enabled: false
+  # Default maximum entities per world (applies to all worlds)
+  # Entities can spawn freely until this limit is reached
+  default_entities_per_world: 500
+
+# ============================================================================
+# AUTO CLEAR - Automatic entity cleanup
+# ============================================================================
+# DISABLED BY DEFAULT - This will NOT remove any entities unless enabled
+# 
+# When enabled, only clears stuck arrows (very high threshold)
+# NEVER removes player-placed entities, mobs, dropped items, or XP
+auto_clear:
+  enabled: false
+  # Only arrows exceeding this count will be removed (very conservative)
+  arrow_limit: 500
+
+# ============================================================================
+# HIBERNATE - Entity hibernation for distant chunks
+# ============================================================================
+# DISABLED BY DEFAULT - Hibernation can cause entity data loss!
+# 
+# When enabled, removes entities from chunks far from players and attempts
+# to restore them when players approach. This can cause:
+# - Armor stands to lose their equipment
+# - Named pets to be lost
+# - Farm animals to disappear
+# 
+# Only enable if you understand the risks and have backups!
 hibernate:
   radius: 64
-  enabled: true
+  enabled: false  # DISABLED by default - can cause data loss
+
+# ============================================================================
+# REDSTONE/HOPPER OPTIMIZATION
+# ============================================================================
+# DISABLED BY DEFAULT - Can break item sorters and farms!
+# 
+# When enabled, monitors redstone and hopper activity for optimization.
+# Note: Hopper throttling has been removed as it broke item sorters.
+redstone_hopper_optimization:
+  enabled: false  # DISABLED by default - safe for farms
 
 pregen:
   max_threads: 2
   default_speed: 100
 
-# Empty Server Optimization - Aggressive RAM/CPU reduction when no players online
+# Empty Server Optimization - RAM/CPU reduction when no players online
 empty_server:
   enabled: true
   # Wait time before applying optimizations after last player leaves (seconds)
@@ -35,16 +97,53 @@ empty_server:
   min_view_distance: 2
   # Minimum simulation distance when server is empty
   min_simulation_distance: 2
+  # Remove dropped items when server is empty (DISABLED by default - can cause item loss!)
+  remove_items: false
 
-clear_interval_seconds: 300
+# Interval for periodic optimization cycles (in seconds)
+clear_interval_seconds: 600
 memory_reclaim_threshold_percent: 80
+
+# Stack fusion for dropped items and XP orbs only (never projectiles)
 enable_stack_fusion: true
 compress_ram_cache: true
 auto_tune: true
 
 # Item Drop Removal System
+# Only affects dropped items, gives countdown warning before removal
 item_removal:
   # Time in seconds before items are removed (600 = 10 minutes)
   lifetime_seconds: 600
   # Time in seconds to show countdown warning before removal (10 = last 10 seconds)
   warning_seconds: 10
+
+# ============================================================================
+# NOTIFICATIONS - Discord webhook alerts
+# ============================================================================
+# Send alerts for important server events to Discord
+notifications:
+  enabled: false
+  # Your Discord webhook URL (right-click channel > Integrations > Webhooks)
+  discord_webhook: ""
+  # What events to notify about
+  notify_on_lag_spike: true
+  notify_on_memory_pressure: true
+  notify_on_low_tps: true
+  notify_on_start: false
+  notify_on_profile_change: false
+
+# ============================================================================
+# WEB DASHBOARD - Real-time performance monitoring
+# ============================================================================
+# Access the dashboard at http://your-server-ip:8080
+web_dashboard:
+  enabled: false
+  # Port to run the web server on
+  port: 8080
+  # Bind address (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
+  bind_address: "0.0.0.0"
+
+# ============================================================================
+# DEBUG - Debugging options
+# ============================================================================
+debug: false

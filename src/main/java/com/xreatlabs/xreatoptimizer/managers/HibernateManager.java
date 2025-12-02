@@ -2,6 +2,7 @@ package com.xreatlabs.xreatoptimizer.managers;
 
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
+import com.xreatlabs.xreatoptimizer.utils.ProtectedEntities;
 import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -9,6 +10,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Tameable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
@@ -16,8 +18,17 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages entity hibernation for performance optimization
+ * 
+ * IMPORTANT: This manager is DISABLED by default to prevent data loss.
+ * Entity hibernation can cause issues with:
+ * - Armor stands losing their items
+ * - Named entities being lost
+ * - Player-placed entities disappearing
+ * 
+ * Only enable if you understand the risks and have proper backups.
  */
 public class HibernateManager {
+    
     private final XreatOptimizer plugin;
     private BukkitTask hibernateTask;
     private final Map<String, HibernationData> hibernatedEntities = new ConcurrentHashMap<>();
@@ -50,10 +61,19 @@ public class HibernateManager {
     }
     
     /**
+     * Checks if an entity should be protected from hibernation.
+     * Uses version-safe ProtectedEntities utility for cross-version compatibility.
+     */
+    private boolean isEntityProtected(Entity entity) {
+        return ProtectedEntities.isProtected(entity);
+    }
+    
+    /**
      * Starts the hibernate manager
      */
     public void start() {
-        if (plugin.getConfig().getBoolean("hibernate.enabled", true)) {
+        // DISABLED by default - hibernation can cause entity data loss
+        if (plugin.getConfig().getBoolean("hibernate.enabled", false)) {
             // Run hibernation checks every 10 seconds
             hibernateTask = plugin.getServer().getScheduler().runTaskTimer(
                 plugin,
@@ -150,14 +170,25 @@ public class HibernateManager {
     
     /**
      * Hibernate all entities in a chunk
+     * 
+     * IMPORTANT: This method now skips ALL protected entity types to prevent
+     * data loss and gameplay issues. Only hostile mobs far from players
+     * will be hibernated.
      */
     private void hibernateChunkEntities(Chunk chunk) {
         Entity[] entities = chunk.getEntities();
         int hibernatedCount = 0;
+        int skippedCount = 0;
         
         for (Entity entity : entities) {
-            // Don't hibernate players or named entities
-            if (entity instanceof Player || entity.getCustomName() != null) {
+            // Don't hibernate players
+            if (entity instanceof Player) {
+                continue;
+            }
+            
+            // Don't hibernate protected entities (armor stands, pets, farm animals, etc.)
+            if (isEntityProtected(entity)) {
+                skippedCount++;
                 continue;
             }
             
@@ -171,8 +202,11 @@ public class HibernateManager {
             hibernatedCount++;
         }
         
-        LoggerUtils.debug("Hibernated " + hibernatedCount + " entities in chunk " + 
-                         chunk.getX() + "," + chunk.getZ() + " of world " + chunk.getWorld().getName());
+        if (hibernatedCount > 0 || skippedCount > 0) {
+            LoggerUtils.debug("Hibernated " + hibernatedCount + " entities (skipped " + skippedCount + 
+                             " protected) in chunk " + chunk.getX() + "," + chunk.getZ() + 
+                             " of world " + chunk.getWorld().getName());
+        }
     }
     
     /**

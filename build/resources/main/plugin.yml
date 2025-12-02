@@ -1,11 +1,12 @@
 name: XreatOptimizer
-version: ${version}
+version: 1.1.0
 main: com.xreatlabs.xreatoptimizer.XreatOptimizer
 api-version: 1.13
 load: POSTWORLD
 author: XreatLabs
-description: Advanced performance optimization engine for Minecraft servers
+description: Advanced performance optimization engine for Minecraft servers (1.8-1.21.10)
 website: https://xreatlabs.space
+softdepend: [PlaceholderAPI]
 
 commands:
   xreatopt:

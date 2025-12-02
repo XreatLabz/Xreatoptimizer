@@ -41,8 +41,13 @@ public class AdvancedEntityOptimizer {
         }
         
         public boolean canAddToGroup(Entity entity) {
+            Location entityLoc = entity.getLocation();
+            // Must be in the same world to measure distance
+            if (!entityLoc.getWorld().equals(centerLocation.getWorld())) {
+                return false;
+            }
             // Check if entity is close enough to the group center
-            return entity.getLocation().distanceSquared(centerLocation) <= 25.0; // 5 block radius
+            return entityLoc.distanceSquared(centerLocation) <= 25.0; // 5 block radius
         }
         
         public void addEntity(Entity entity) {
@@ -155,7 +160,7 @@ public class AdvancedEntityOptimizer {
         // Only process entities that are suitable for fusion
         for (Entity entity : world.getEntities()) {
             // Skip players, named entities, and entities with passengers
-            if (entity instanceof Player || entity.getCustomName() != null || entity.getPassengers().size() > 0) {
+            if (entity instanceof Player || entity.getCustomName() != null || hasPassengers(entity)) {
                 continue;
             }
             
@@ -226,19 +231,19 @@ public class AdvancedEntityOptimizer {
     
     /**
      * Checks if an entity type is suitable for stack fusion
+     * 
+     * IMPORTANT: Only truly stackable entities should be fused.
+     * Projectiles should NEVER be fused as it would break gameplay.
      */
     private boolean isEntityTypeFusable(EntityType type) {
         switch (type) {
             case DROPPED_ITEM:
             case EXPERIENCE_ORB:
-            case ARROW:
-            case SPECTRAL_ARROW:
-            case ENDER_PEARL:
-            case SNOWBALL:
-            case EGG:
                 return true;
+            // NOTE: Projectiles (arrows, snowballs, eggs, ender pearls, etc.) should NEVER be fused
+            // as it would break their intended behavior and player gameplay
             default:
-                return false; // Other entity types aren't fused by default
+                return false;
         }
     }
     
@@ -335,5 +340,24 @@ public class AdvancedEntityOptimizer {
      */
     public void setStackFusionEnabled(boolean enabled) {
         LoggerUtils.info("Stack fusion " + (enabled ? "enabled" : "disabled"));
+    }
+    
+    /**
+     * Version-safe check for entity passengers.
+     * Works on both pre-1.11 (getPassenger) and 1.11+ (getPassengers).
+     */
+    private boolean hasPassengers(Entity entity) {
+        try {
+            // Try 1.11+ method first
+            return !entity.getPassengers().isEmpty();
+        } catch (NoSuchMethodError e) {
+            // Fall back to pre-1.11 method
+            try {
+                Object passenger = entity.getClass().getMethod("getPassenger").invoke(entity);
+                return passenger != null;
+            } catch (Exception ex) {
+                return false;
+            }
+        }
     }
 }

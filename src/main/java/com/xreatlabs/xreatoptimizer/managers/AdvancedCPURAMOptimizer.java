@@ -153,49 +153,55 @@ public class AdvancedCPURAMOptimizer {
     
     /**
      * Removes excess entities aggressively
+     * 
+     * IMPORTANT: This method has been modified to NEVER remove:
+     * - Passive mobs (pigs, cows, sheep, etc.) - players may have farms
+     * - Dropped items - players earned these
+     * - Experience orbs - players earned these
+     * 
+     * Only stuck arrows are removed in emergency situations.
      */
     private int removeExcessEntitiesAggressively() {
         int removedTotal = 0;
         
-        // Much more aggressive entity removal thresholds
+        // REMOVED: We no longer remove dropped items, XP, or passive mobs
+        // These removals were breaking player farms and causing item loss
+        
+        // Only remove stuck arrows in extreme emergencies (very high threshold)
         for (World world : Bukkit.getWorlds()) {
-            // Remove dropped items more aggressively
-            removedTotal += removeEntitiesByType(world, EntityType.DROPPED_ITEM, 50); // Only keep 50 items max
-            
-            // Remove experience orbs aggressively  
-            removedTotal += removeEntitiesByType(world, EntityType.EXPERIENCE_ORB, 25);
-            
-            // Remove projectiles aggressively
-            removedTotal += removeEntitiesByType(world, EntityType.ARROW, 25);
-            removedTotal += removeEntitiesByType(world, EntityType.SPECTRAL_ARROW, 25);
-            
-            // Remove passive mobs more aggressively if they exceed small thresholds
-            if (MemoryUtils.isMemoryPressureHigh()) {
-                removedTotal += removeEntitiesByType(world, EntityType.PIG, 50);
-                removedTotal += removeEntitiesByType(world, EntityType.COW, 50);
-                removedTotal += removeEntitiesByType(world, EntityType.SHEEP, 50);
-            }
+            // Only remove arrows if there are a LOT of them (500+)
+            removedTotal += removeEntitiesByType(world, EntityType.ARROW, 500);
+            removedTotal += removeEntitiesByType(world, EntityType.SPECTRAL_ARROW, 500);
         }
+        
+        // NOTE: The following was removed because it breaks gameplay:
+        // - Dropped items (players need to pick these up)
+        // - Experience orbs (players earned these)
+        // - Passive mobs (pigs, cows, sheep - player farms!)
         
         return removedTotal;
     }
     
     /**
      * Removes excess entities based on normal thresholds
+     * 
+     * IMPORTANT: This method has been modified to NEVER remove gameplay entities.
+     * Only stuck arrows are cleaned up.
      */
     private int removeExcessEntities() {
         int removedTotal = 0;
         
+        // REMOVED: All passive mob and item removal
+        // This was breaking player farms and causing frustration
+        
+        // Only clean up stuck arrows (very conservative)
         for (World world : Bukkit.getWorlds()) {
-            // Use config-defined limits but be more aggressive
-            int itemLimit = Math.max(50, plugin.getConfig().getInt("optimization.entity_limits.item", 1000) / 2);
-            int passiveLimit = Math.max(100, plugin.getConfig().getInt("optimization.entity_limits.passive", 200) / 2);
-            
-            removedTotal += removeEntitiesByType(world, EntityType.DROPPED_ITEM, itemLimit);
-            removedTotal += removeEntitiesByType(world, EntityType.PIG, passiveLimit);
-            removedTotal += removeEntitiesByType(world, EntityType.COW, passiveLimit);
-            removedTotal += removeEntitiesByType(world, EntityType.SHEEP, passiveLimit);
+            removedTotal += removeEntitiesByType(world, EntityType.ARROW, 500);
         }
+        
+        // NOTE: We no longer remove:
+        // - DROPPED_ITEM - players need to pick these up
+        // - PIG, COW, SHEEP - player farms!
         
         return removedTotal;
     }

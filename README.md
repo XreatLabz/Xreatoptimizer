@@ -2,8 +2,8 @@
 
 [![Spigot](https://img.shields.io/badge/Spigot-1.8--1.21.10-orange.svg)](https://www.spigotmc.org/)
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](https://github.com/XreatLabs/XreatOptimizer)
-[![Java](https://img.shields.io/badge/Java-17-blue.svg)](https://www.oracle.com/java/)
+[![Version](https://img.shields.io/badge/Version-1.1.0-blue.svg)](https://github.com/XreatLabs/XreatOptimizer)
+[![Java](https://img.shields.io/badge/Java-11+-blue.svg)](https://www.oracle.com/java/)
 
 > **The Ultimate All-in-One Performance Optimization Engine for Minecraft Servers**
 
@@ -101,6 +101,22 @@
 - **Performance Reports**: Detailed reports with optimization recommendations
 - **GUI Interface**: User-friendly GUI for easy management (/xreatgui)
 - **Announcement System**: Periodic status broadcasts (every 30 minutes)
+- **Web Dashboard**: Beautiful real-time web interface for remote monitoring
+
+### Web Dashboard (New in 1.1.0)
+
+Access your server performance from anywhere with the built-in web dashboard:
+
+- **Real-time Metrics**: TPS, memory, entities, players updated live
+- **Performance Charts**: Historical graphs for TPS, memory, entities, and chunks
+- **World Statistics**: Per-world entity counts, chunk counts, and player counts
+- **Plugin Overview**: View all loaded plugins with their status
+- **Feature Status**: Monitor which optimization features are enabled
+- **Lag Spike Alerts**: View recent lag spikes with timestamps and causes
+- **System Information**: Java version, server software, CPU cores
+- **Log Viewer**: Recent plugin logs with color-coded severity levels
+- **Mobile Responsive**: Works on desktop, tablet, and mobile devices
+- **Secure Access**: Configurable bind address and port
 
 ---
 
@@ -150,7 +166,7 @@ XreatOptimizer uses advanced reflection and version adapters to support all Mine
 ### Requirements
 
 - **Minecraft Server**: Spigot, Paper, or Purpur (versions 1.8 - 1.21.10)
-- **Java Version**: Java 17 or higher
+- **Java Version**: Java 11 or higher (Java 17+ recommended)
 - **RAM**: Minimum 2GB (4GB+ recommended)
 
 ---
@@ -205,6 +221,12 @@ memory_reclaim_threshold_percent: 80   # Memory threshold to trigger cleanup
 enable_stack_fusion: true              # Combine nearby similar entities
 compress_ram_cache: true               # Enable RAM compression
 auto_tune: true                        # Enable AI auto-tuning engine
+
+# Web Dashboard - Real-time performance monitoring interface
+web_dashboard:
+  enabled: false                       # Enable web dashboard (set to true to activate)
+  port: 8080                           # Port for the web interface
+  bind_address: "0.0.0.0"              # Bind address (0.0.0.0 for all interfaces)
 ```
 
 ### Configuration Examples
@@ -589,7 +611,7 @@ This message is broadcast every 30 minutes and appears in:
 
 - **Website**: [https://xreatlabs.space](https://xreatlabs.space)
 - **Developer**: XreatLabs
-- **Version**: 1.0.0
+- **Version**: 1.1.0
 
 ### Getting Help
 
@@ -645,7 +667,19 @@ A: Yes, XreatOptimizer is compatible with all major world management plugins.
 
 ## Changelog
 
-### Version 1.0.0 (Current)
+### Version 1.1.0 (Current)
+- **NEW**: Web Dashboard - Real-time browser-based monitoring interface
+  - Live TPS, memory, entity, and player metrics
+  - Historical performance charts
+  - World statistics and plugin overview
+  - Lag spike alerts and log viewer
+  - Mobile-responsive design
+- **FIX**: Resolved async thread safety issues with entity counting
+- **FIX**: Improved error handling in all dashboard API endpoints
+- **CHANGE**: Reduced Java requirement from 17 to 11 for broader compatibility
+- **CHANGE**: Improved version placeholder replacement in builds
+
+### Version 1.0.0
 - Initial release
 - Full cross-version support (1.8 - 1.21.10)
 - AI-powered auto-tuning engine
@@ -668,5 +702,5 @@ A: Yes, XreatOptimizer is compatible with all major world management plugins.
 
 **Made by XreatLabs** | https://xreatlabs.space
 *The Ultimate Performance Engine for Minecraft Servers*
-
+no
 Compatible with Minecraft 1.8 through 1.21.10

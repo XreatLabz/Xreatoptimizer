@@ -281,30 +281,75 @@ public class LagSpikeDetector {
     
     /**
      * Mitigate severe lag spike
+     * 
+     * IMPORTANT: This method no longer removes dropped items as that was
+     * causing players to lose their items unexpectedly. Instead, we only
+     * suggest garbage collection and log the event.
      */
     private void mitigateSevereLag(LagSpike spike) {
         spike.mitigated = true;
         
-        LoggerUtils.warn("SEVERE LAG DETECTED - Applying emergency optimizations");
+        LoggerUtils.warn("SEVERE LAG DETECTED - Applying safe emergency optimizations");
         
-        // Emergency measures
+        // Emergency measures - SAFE operations only
         plugin.getThreadPoolManager().executeAnalyticsTask(() -> {
-            // Trigger aggressive GC
+            // Suggest garbage collection (non-destructive)
             System.gc();
+            LoggerUtils.info("Emergency: Suggested garbage collection due to severe lag");
             
-            // Clear dropped items
-            if (plugin.getAutoClearTask() != null) {
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    // Clear items in all worlds
-                    Bukkit.getWorlds().forEach(world -> {
-                        world.getEntities().stream()
-                            .filter(e -> e.getType().name().equals("DROPPED_ITEM"))
-                            .forEach(org.bukkit.entity.Entity::remove);
-                    });
-                    LoggerUtils.info("Emergency: Cleared dropped items due to severe lag");
-                });
+            // NOTE: We intentionally do NOT remove dropped items here anymore.
+            // Removing items was causing players to lose valuable drops unexpectedly.
+            // Items are handled by ItemDropTracker with proper warnings instead.
+            
+            // Send notification if webhooks are configured
+            if (plugin.getConfig().getBoolean("notifications.enabled", false)) {
+                String webhook = plugin.getConfig().getString("notifications.discord_webhook", "");
+                if (!webhook.isEmpty()) {
+                    sendDiscordNotification(webhook, spike);
+                }
+            }
+            
+            // Record to web dashboard if available
+            if (plugin.getWebDashboard() != null && plugin.getWebDashboard().isRunning()) {
+                plugin.getWebDashboard().recordLagSpike(spike.peakTickTime, spike.cause);
             }
         });
+    }
+    
+    /**
+     * Send Discord webhook notification for lag spike.
+     * Uses HttpURLConnection for Java 8+ compatibility.
+     */
+    private void sendDiscordNotification(String webhookUrl, LagSpike spike) {
+        try {
+            String json = String.format(
+                "{\"embeds\":[{\"title\":\"⚠️ Severe Lag Spike Detected\"," +
+                "\"description\":\"Peak: %.2fms/tick\\nCause: %s\"," +
+                "\"color\":16711680}]}",
+                spike.peakTickTime, spike.cause
+            );
+            
+            java.net.URL url = new java.net.URL(webhookUrl);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            
+            try (java.io.OutputStream os = conn.getOutputStream()) {
+                os.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            
+            // Read response to complete the request
+            int responseCode = conn.getResponseCode();
+            if (responseCode < 200 || responseCode >= 300) {
+                LoggerUtils.debug("Discord webhook returned status: " + responseCode);
+            }
+            conn.disconnect();
+        } catch (Exception e) {
+            LoggerUtils.debug("Failed to send Discord notification: " + e.getMessage());
+        }
     }
     
     /**

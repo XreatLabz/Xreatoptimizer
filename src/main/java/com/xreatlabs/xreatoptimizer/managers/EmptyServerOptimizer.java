@@ -147,11 +147,17 @@ public class EmptyServerOptimizer implements Listener {
                     // Not available in this version, ignore
                 }
                 
-                // Remove all dropped items
-                for (Entity entity : world.getEntities()) {
-                    if (entity instanceof Item) {
-                        entity.remove();
-                        entitiesRemoved++;
+                // NOTE: We no longer remove dropped items when server is empty.
+                // This was causing players to lose items if they disconnected briefly.
+                // Items will naturally despawn after their lifetime or be managed by ItemDropTracker.
+                // 
+                // If you REALLY want to remove items when server is empty, enable it in config:
+                if (plugin.getConfig().getBoolean("empty_server.remove_items", false)) {
+                    for (Entity entity : world.getEntities()) {
+                        if (entity instanceof Item) {
+                            entity.remove();
+                            entitiesRemoved++;
+                        }
                     }
                 }
                 

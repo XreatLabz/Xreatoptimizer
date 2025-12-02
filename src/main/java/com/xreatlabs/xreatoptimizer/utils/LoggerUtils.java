@@ -19,6 +19,7 @@ public class LoggerUtils {
      */
     public static void info(String message) {
         logger.info("[XreatOptimizer] " + message);
+        addToWebDashboard("INFO", message);
     }
     
     /**
@@ -27,6 +28,7 @@ public class LoggerUtils {
      */
     public static void warn(String message) {
         logger.warning("[XreatOptimizer] " + message);
+        addToWebDashboard("WARN", message);
     }
     
     /**
@@ -35,6 +37,7 @@ public class LoggerUtils {
      */
     public static void error(String message) {
         logger.severe("[XreatOptimizer] " + message);
+        addToWebDashboard("ERROR", message);
     }
     
     /**
@@ -44,6 +47,20 @@ public class LoggerUtils {
      */
     public static void error(String message, Throwable throwable) {
         logger.log(Level.SEVERE, "[XreatOptimizer] " + message, throwable);
+        addToWebDashboard("ERROR", message + ": " + throwable.getMessage());
+    }
+    
+    /**
+     * Adds log entry to web dashboard if available
+     */
+    private static void addToWebDashboard(String level, String message) {
+        try {
+            if (plugin != null && plugin.getWebDashboard() != null && plugin.getWebDashboard().isRunning()) {
+                plugin.getWebDashboard().addLogEntry(level, message);
+            }
+        } catch (Exception ignored) {
+            // Ignore - dashboard may not be initialized
+        }
     }
     
     /**

@@ -79,8 +79,9 @@ public class RedstoneHopperOptimizer implements Listener {
      * Start the optimizer
      */
     public void start() {
-        if (!plugin.getConfig().getBoolean("redstone_hopper_optimization.enabled", true)) {
-            LoggerUtils.info("Redstone/Hopper optimizer is disabled in config.");
+        // DISABLED by default - hopper optimization can break item sorters and farms
+        if (!plugin.getConfig().getBoolean("redstone_hopper_optimization.enabled", false)) {
+            LoggerUtils.info("Redstone/Hopper optimizer is disabled in config (default: safe for farms).");
             return;
         }
         
@@ -145,9 +146,13 @@ public class RedstoneHopperOptimizer implements Listener {
     }
     
     /**
-     * Handle hopper item movement with throttling
+     * Handle hopper item movement - MONITORING ONLY
+     * 
+     * IMPORTANT: This method no longer cancels hopper events.
+     * Cancelling hopper transfers was breaking item sorters, farms, and other
+     * redstone contraptions. Now we only monitor for statistics.
      */
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.MONITOR)  // Changed to MONITOR - no cancellation
     public void onHopperMove(InventoryMoveItemEvent event) {
         if (!isRunning) return;
         
@@ -156,15 +161,12 @@ public class RedstoneHopperOptimizer implements Listener {
         Hopper hopper = (Hopper) event.getSource().getHolder();
         Location loc = hopper.getLocation();
         
-        // Check if this hopper is optimized
+        // Track hopper activity for statistics only - NEVER cancel
         if (optimizedHoppers.contains(loc)) {
             HopperData data = hopperCache.computeIfAbsent(loc, k -> new HopperData(loc));
+            data.shouldThrottle(); // Just update tracking, don't use result
             
-            if (data.shouldThrottle()) {
-                // Cancel excessive hopper checks
-                event.setCancelled(true);
-                return;
-            }
+            // REMOVED: event.setCancelled(true) - this was breaking item sorters!
         }
     }
     

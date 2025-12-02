@@ -158,15 +158,24 @@ public class AutoTuningEngine {
     
     /**
      * Adjusts entity limits based on memory usage
+     * 
+     * IMPORTANT: Minimum limits are set high to prevent breaking player farms.
+     * We never reduce passive mob limits below 200 or hostile below 150.
      */
     private void adjustEntityLimits(double currentMemory, double avgMemory, int avgEntities, double avgTPS) {
-        // If memory pressure is consistently high, reduce entity limits
-        if (avgMemory > 75) {
-            adjustedEntityPassiveLimit = Math.max(50, (int) (adjustedEntityPassiveLimit * 0.9));
-            adjustedEntityHostileLimit = Math.max(50, (int) (adjustedEntityHostileLimit * 0.9));
-            adjustedEntityItemLimit = Math.max(200, (int) (adjustedEntityItemLimit * 0.85));
+        // Safe minimum limits - NEVER go below these to protect player farms
+        final int MIN_PASSIVE_LIMIT = 200;  // Players have farms!
+        final int MIN_HOSTILE_LIMIT = 150;  // Mob farms exist
+        final int MIN_ITEM_LIMIT = 500;     // Players drop items
+        
+        // If memory pressure is consistently high, slightly reduce entity limits
+        // but NEVER below safe minimums
+        if (avgMemory > 85) { // Increased threshold - only reduce at very high memory
+            adjustedEntityPassiveLimit = Math.max(MIN_PASSIVE_LIMIT, (int) (adjustedEntityPassiveLimit * 0.95));
+            adjustedEntityHostileLimit = Math.max(MIN_HOSTILE_LIMIT, (int) (adjustedEntityHostileLimit * 0.95));
+            adjustedEntityItemLimit = Math.max(MIN_ITEM_LIMIT, (int) (adjustedEntityItemLimit * 0.9));
             
-            LoggerUtils.debug("Reduced entity limits due to memory pressure: P:" + 
+            LoggerUtils.debug("Slightly reduced entity limits due to high memory pressure: P:" + 
                              adjustedEntityPassiveLimit + " H:" + adjustedEntityHostileLimit + 
                              " I:" + adjustedEntityItemLimit);
         } else if (avgMemory < 50 && avgTPS > 19.0) {
@@ -179,6 +188,11 @@ public class AutoTuningEngine {
                              adjustedEntityPassiveLimit + " H:" + adjustedEntityHostileLimit + 
                              " I:" + adjustedEntityItemLimit);
         }
+        
+        // Final safety check - ensure we never go below minimums
+        adjustedEntityPassiveLimit = Math.max(MIN_PASSIVE_LIMIT, adjustedEntityPassiveLimit);
+        adjustedEntityHostileLimit = Math.max(MIN_HOSTILE_LIMIT, adjustedEntityHostileLimit);
+        adjustedEntityItemLimit = Math.max(MIN_ITEM_LIMIT, adjustedEntityItemLimit);
     }
     
     /**

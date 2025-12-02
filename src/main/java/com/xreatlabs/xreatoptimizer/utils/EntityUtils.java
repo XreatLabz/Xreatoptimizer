@@ -9,7 +9,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Utility class for entity-related operations
+ * Utility class for entity-related operations.
+ * Compatible with Minecraft 1.8 - 1.21.10
  */
 public class EntityUtils {
     
@@ -51,10 +52,7 @@ public class EntityUtils {
      * @return Total entity count
      */
     public static int getTotalEntityCount() {
-        // This method should not be called from async threads
-        // For async operations, we'll need to use a scheduled sync task
         try {
-            // Check if we're on the main thread
             if (Bukkit.isPrimaryThread()) {
                 int count = 0;
                 for (World world : Bukkit.getWorlds()) {
@@ -62,12 +60,9 @@ public class EntityUtils {
                 }
                 return count;
             } else {
-                // When called from async context, return 0 as a safe fallback
-                // A proper implementation would cache this value or schedule a sync task
                 return 0;
             }
         } catch (Exception e) {
-            // If there are any issues accessing entities, return safe default
             return 0;
         }
     }
@@ -90,18 +85,27 @@ public class EntityUtils {
     
     /**
      * Removes entities of specific types that exceed a count threshold
+     * 
+     * IMPORTANT: This method has multiple safety checks to prevent removing
+     * entities that would affect player gameplay.
+     * 
      * @param world The world to process
      * @param type The entity type to check
      * @param maxCount Maximum allowed count
      * @return Number of entities removed
      */
     public static int removeExcessEntities(World world, EntityType type, int maxCount) {
+        // Safety: Never allow removal of protected entity types
+        if (ProtectedEntities.isProtectedType(type)) {
+            return 0;
+        }
+        
         int removed = 0;
         int currentCount = 0;
         
-        // First, count current entities of the specified type
+        // First, count current entities of the specified type (excluding protected ones)
         for (Entity entity : world.getEntities()) {
-            if (entity.getType() == type) {
+            if (entity.getType() == type && !ProtectedEntities.isProtected(entity)) {
                 currentCount++;
             }
         }
@@ -113,13 +117,10 @@ public class EntityUtils {
             for (Entity entity : world.getEntities()) {
                 if (toRemove <= 0) break;
                 
-                if (entity.getType() == type) {
-                    // Don't remove named entities or entities with important NBT
-                    if (entity.getCustomName() == null) {
-                        entity.remove();
-                        removed++;
-                        toRemove--;
-                    }
+                if (entity.getType() == type && !ProtectedEntities.isProtected(entity)) {
+                    entity.remove();
+                    removed++;
+                    toRemove--;
                 }
             }
         }

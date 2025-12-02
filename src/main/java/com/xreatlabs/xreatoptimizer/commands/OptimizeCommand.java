@@ -4,6 +4,7 @@ import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import com.xreatlabs.xreatoptimizer.managers.*;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
 import com.xreatlabs.xreatoptimizer.utils.MemoryUtils;
+import com.xreatlabs.xreatoptimizer.utils.MessageUtils;
 import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -46,6 +47,9 @@ public class OptimizeCommand implements CommandExecutor {
                 return executeReport(sender);
             case "clearcache":
                 return executeClearCache(sender);
+            case "dashboard":
+            case "web":
+                return executeDashboard(sender);
             case "help":
             case "?":
                 return showHelp(sender);
@@ -56,28 +60,30 @@ public class OptimizeCommand implements CommandExecutor {
     }
     
     private boolean showHelp(CommandSender sender) {
-        sender.sendMessage(ChatColor.GOLD + "=== XreatOptimizer Commands ===");
+        MessageUtils.sendHeader(sender, "XreatOptimizer");
         
         if (sender.hasPermission("xreatopt.view")) {
-            sender.sendMessage(ChatColor.YELLOW + "/xreatopt stats" + ChatColor.WHITE + " - Show server performance statistics");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt stats", "Show server performance statistics");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt report", "Generate performance report");
         }
         
         if (sender.hasPermission("xreatopt.admin")) {
-            sender.sendMessage(ChatColor.YELLOW + "/xreatopt boost" + ChatColor.WHITE + " - Trigger full optimization cycle");
-            sender.sendMessage(ChatColor.YELLOW + "/xreatopt pregen <world> <radius> <speed>" + ChatColor.WHITE + " - Generate chunks asynchronously");
-            sender.sendMessage(ChatColor.YELLOW + "/xreatopt purge" + ChatColor.WHITE + " - Unload unused chunks/entities");
-            sender.sendMessage(ChatColor.YELLOW + "/xreatopt reload" + ChatColor.WHITE + " - Reload configuration");
-            sender.sendMessage(ChatColor.YELLOW + "/xreatopt report" + ChatColor.WHITE + " - Generate performance report");
-            sender.sendMessage(ChatColor.YELLOW + "/xreatopt clearcache" + ChatColor.WHITE + " - Clear RAM caches");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt boost", "Trigger full optimization cycle");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt pregen <world> <radius> <speed>", "Pre-generate chunks");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt purge", "Clean up unused resources");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt reload", "Reload configuration");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt clearcache", "Clear RAM caches");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt notify test", "Test Discord notifications");
+            MessageUtils.sendCommandHelp(sender, "/xreatopt dashboard", "Show web dashboard URL");
         }
         
-        sender.sendMessage(ChatColor.GOLD + "=============================");
+        MessageUtils.sendFooter(sender);
         return true;
     }
     
     private boolean executeStats(CommandSender sender) {
         if (!sender.hasPermission("xreatopt.view")) {
-            sender.sendMessage(ChatColor.RED + "You don't have permission to view statistics.");
+            MessageUtils.sendError(sender, "You don't have permission to view statistics.");
             return true;
         }
         
@@ -88,37 +94,68 @@ public class OptimizeCommand implements CommandExecutor {
         double memoryPercent = MemoryUtils.getMemoryUsagePercentage();
         int entityCount = plugin.getPerformanceMonitor().getCurrentEntityCount();
         int chunkCount = plugin.getPerformanceMonitor().getCurrentChunkCount();
+        int playerCount = org.bukkit.Bukkit.getOnlinePlayers().size();
         
-        sender.sendMessage(ChatColor.GOLD + "=== XreatOptimizer Statistics ===");
-        sender.sendMessage(ChatColor.AQUA + "TPS: " + ChatColor.WHITE + String.format("%.2f", tps));
-        sender.sendMessage(ChatColor.AQUA + "Memory: " + ChatColor.WHITE + usedMemory + "MB/" + maxMemory + "MB (" + 
-                          String.format("%.1f", memoryPercent) + "%)");
-        sender.sendMessage(ChatColor.AQUA + "Entities: " + ChatColor.WHITE + entityCount);
-        sender.sendMessage(ChatColor.AQUA + "Loaded Chunks: " + ChatColor.WHITE + chunkCount);
-        sender.sendMessage(ChatColor.AQUA + "Optimization Profile: " + ChatColor.WHITE + 
-                          plugin.getOptimizationManager().getCurrentProfile());
-        sender.sendMessage(ChatColor.AQUA + "Hibernate Chunks: " + ChatColor.WHITE + 
-                          plugin.getHibernateManager().getHibernatedChunkCount());
-        sender.sendMessage(ChatColor.AQUA + "Cached Chunks: " + ChatColor.WHITE + 
-                          plugin.getMemorySaver().getCachedChunkCount());
-        sender.sendMessage(ChatColor.GOLD + "==============================");
+        MessageUtils.sendHeader(sender, "Server Statistics");
+        
+        // TPS with status indicator
+        MessageUtils.sendStatWithStatus(sender, "TPS", 
+            MessageUtils.formatTPS(tps), 
+            MessageUtils.getTpsStatus(tps));
+        
+        // Memory with progress bar
+        MessageUtils.sendProgressBar(sender, "Memory", memoryPercent, 20);
+        MessageUtils.sendStat(sender, "Memory Details", 
+            MessageUtils.formatNumber(usedMemory) + "MB / " + MessageUtils.formatNumber(maxMemory) + "MB");
+        
+        // Other stats
+        MessageUtils.sendStatWithStatus(sender, "Entities", 
+            MessageUtils.formatNumber(entityCount),
+            entityCount < 5000 ? MessageUtils.Status.GOOD : 
+            entityCount < 10000 ? MessageUtils.Status.WARNING : MessageUtils.Status.CRITICAL);
+        
+        MessageUtils.sendStat(sender, "Loaded Chunks", MessageUtils.formatNumber(chunkCount));
+        MessageUtils.sendStat(sender, "Players Online", String.valueOf(playerCount));
+        
+        // Profile with color
+        String profile = plugin.getOptimizationManager().getCurrentProfile().name();
+        String profileColor;
+        switch (profile) {
+            case "LIGHT": profileColor = MessageUtils.SUCCESS_HEX; break;
+            case "NORMAL": profileColor = MessageUtils.INFO_HEX; break;
+            case "AGGRESSIVE": profileColor = MessageUtils.WARNING_HEX; break;
+            case "EMERGENCY": profileColor = MessageUtils.ERROR_HEX; break;
+            default: profileColor = MessageUtils.PRIMARY_HEX; break;
+        }
+        MessageUtils.sendStat(sender, "Profile", MessageUtils.hex(profileColor) + profile);
+        
+        // Optimization stats
+        MessageUtils.sendStat(sender, "Hibernated", 
+            plugin.getHibernateManager().getHibernatedChunkCount() + " chunks");
+        MessageUtils.sendStat(sender, "Cached", 
+            plugin.getMemorySaver().getCachedChunkCount() + " chunks");
+        
+        MessageUtils.sendFooter(sender);
         
         return true;
     }
     
     private boolean executeBoost(CommandSender sender) {
         if (!sender.hasPermission("xreatopt.admin")) {
-            sender.sendMessage(ChatColor.RED + "You don't have permission to run optimizations.");
+            MessageUtils.sendError(sender, "You don't have permission to run optimizations.");
             return true;
         }
         
-        sender.sendMessage(ChatColor.GREEN + "Triggering full optimization cycle...");
+        MessageUtils.sendInfo(sender, "Triggering full optimization cycle...");
         
         // Run immediate optimizations
         plugin.getAutoClearTask().immediateClear();
         plugin.getMemorySaver().clearCache();
         
-        sender.sendMessage(ChatColor.GREEN + "Optimization cycle completed!");
+        // Suggest GC
+        System.gc();
+        
+        MessageUtils.sendSuccess(sender, "Optimization cycle completed successfully!");
         return true;
     }
     
@@ -261,6 +298,39 @@ public class OptimizeCommand implements CommandExecutor {
         plugin.getMemorySaver().clearCache();
         
         sender.sendMessage(ChatColor.GREEN + "Cleared RAM cache. Removed " + cacheSize + " cached chunk entries.");
+        return true;
+    }
+    
+    private boolean executeDashboard(CommandSender sender) {
+        if (!sender.hasPermission("xreatopt.admin")) {
+            MessageUtils.sendError(sender, "You don't have permission to view dashboard info.");
+            return true;
+        }
+        
+        boolean enabled = plugin.getConfig().getBoolean("web_dashboard.enabled", false);
+        
+        if (!enabled) {
+            MessageUtils.sendWarning(sender, "Web dashboard is disabled in config.yml");
+            MessageUtils.sendInfo(sender, "Enable it by setting web_dashboard.enabled: true");
+            return true;
+        }
+        
+        if (plugin.getWebDashboard() == null || !plugin.getWebDashboard().isRunning()) {
+            MessageUtils.sendError(sender, "Web dashboard failed to start. Check console for errors.");
+            return true;
+        }
+        
+        int port = plugin.getConfig().getInt("web_dashboard.port", 8080);
+        String bindAddress = plugin.getConfig().getString("web_dashboard.bind_address", "0.0.0.0");
+        
+        MessageUtils.sendHeader(sender, "Web Dashboard");
+        MessageUtils.sendSuccess(sender, "Dashboard is running!");
+        MessageUtils.sendStat(sender, "URL", "http://your-server-ip:" + port);
+        MessageUtils.sendStat(sender, "Bind Address", bindAddress);
+        MessageUtils.sendStat(sender, "Port", String.valueOf(port));
+        MessageUtils.sendInfo(sender, "Access via browser to view real-time stats");
+        MessageUtils.sendFooter(sender);
+        
         return true;
     }
 }

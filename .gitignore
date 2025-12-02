@@ -1,0 +1,28 @@
+# Build outputs
+build/
+target/
+out/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Environment files (contains secrets)
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
