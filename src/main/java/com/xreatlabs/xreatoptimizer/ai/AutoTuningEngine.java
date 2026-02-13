@@ -123,10 +123,12 @@ public class AutoTuningEngine {
      * Adjusts thresholds based on historical performance and current conditions
      */
     private void adjustThresholds(double currentTPS, double currentMemory, int currentEntities) {
-        // Calculate historical averages for decision making
-        double avgTPS = getAverage(tpsHistory);
-        double avgMemory = getAverage(memoryHistory);
-        int avgEntities = getAverageInt(entityHistory);
+        // Use EWMA for smoother, more responsive adaptation
+        double avgTPS = getEWMA(tpsHistory);
+        double avgMemory = getEWMA(memoryHistory);
+        List<Double> entityDoubles = new ArrayList<>();
+        for (int e : entityHistory) entityDoubles.add((double) e);
+        int avgEntities = (int) getEWMA(entityDoubles);
         
         // Adjust TPS thresholds based on performance consistency
         adjustTPSThresholds(currentTPS, avgTPS);

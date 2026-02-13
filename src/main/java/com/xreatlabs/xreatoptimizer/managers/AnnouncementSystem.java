@@ -83,10 +83,17 @@ public class AnnouncementSystem {
         broadcastAnnouncements();
     }
 
-    /**
-     * Set the broadcast interval in seconds
-     */
-    public void setBroadcastInterval(int intervalSeconds) {
-        LoggerUtils.info("Announcement broadcast interval set to: " + intervalSeconds + " seconds");
+    public void setBroadcastInterval(int intervalMinutes) {
+        if (announcementTask != null) {
+            announcementTask.cancel();
+        }
+        int intervalTicks = intervalMinutes * 1200;
+        announcementTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
+            plugin,
+            this::broadcastAnnouncements,
+            intervalTicks,
+            intervalTicks
+        );
+        LoggerUtils.info("Announcement broadcast interval set to: " + intervalMinutes + " minutes");
     }
 }

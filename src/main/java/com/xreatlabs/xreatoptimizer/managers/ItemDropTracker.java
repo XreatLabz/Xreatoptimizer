@@ -98,6 +98,26 @@ public class ItemDropTracker {
     }
 
     /**
+     * Resolve an entity by UUID efficiently.
+     * Uses Bukkit.getEntity() on 1.12+ with fallback to world iteration.
+     */
+    private org.bukkit.entity.Entity resolveEntity(UUID id) {
+        // Try Bukkit.getEntity (available 1.12+)
+        try {
+            org.bukkit.entity.Entity e = Bukkit.getEntity(id);
+            if (e != null) return e;
+        } catch (NoSuchMethodError ignored) {
+            // Fallback for pre-1.12
+            for (org.bukkit.World world : Bukkit.getWorlds()) {
+                for (org.bukkit.entity.Entity entity : world.getEntities()) {
+                    if (entity.getUniqueId().equals(id)) return entity;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Check and remove items that have expired
      */
     private void checkAndRemoveExpiredItems() {
@@ -105,42 +125,29 @@ public class ItemDropTracker {
 
         long currentTime = System.currentTimeMillis();
         int removed = 0;
-
-        // Create a list to track items to remove
         java.util.List<UUID> toRemove = new java.util.ArrayList<>();
 
-        // Iterate through tracked items
         for (Map.Entry<UUID, Long> entry : itemSpawnTimes.entrySet()) {
             UUID itemId = entry.getKey();
             long spawnTime = entry.getValue();
-            long age = (currentTime - spawnTime) / 1000; // Age in seconds
+            long age = (currentTime - spawnTime) / 1000;
 
-            // Check if item has exceeded lifetime
             if (age >= itemLifetime) {
-                // Find and remove the item entity
-                boolean found = false;
-                for (org.bukkit.World world : Bukkit.getWorlds()) {
-                    for (org.bukkit.entity.Entity entity : world.getEntities()) {
-                        if (entity.getUniqueId().equals(itemId) && entity instanceof Item) {
-                            entity.remove();
-                            removed++;
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found) break;
+                org.bukkit.entity.Entity entity = resolveEntity(itemId);
+                if (entity instanceof Item) {
+                    entity.remove();
+                    removed++;
                 }
                 toRemove.add(itemId);
             }
         }
 
-        // Remove tracked items that were deleted or no longer exist
         for (UUID id : toRemove) {
             itemSpawnTimes.remove(id);
         }
 
         if (removed > 0) {
-            LoggerUtils.info("Removed " + removed + " expired items (10 minutes old).");
+            LoggerUtils.info("Removed " + removed + " expired items (" + itemLifetime + "s old).");
         }
     }
 
@@ -152,22 +159,9 @@ public class ItemDropTracker {
 
         java.util.List<UUID> toRemove = new java.util.ArrayList<>();
 
-        // Check if tracked items still exist in the world
         for (UUID itemId : itemSpawnTimes.keySet()) {
-            boolean exists = false;
-
-            for (org.bukkit.World world : Bukkit.getWorlds()) {
-                for (org.bukkit.entity.Entity entity : world.getEntities()) {
-                    if (entity.getUniqueId().equals(itemId) && entity instanceof Item) {
-                        exists = true;
-                        break;
-                    }
-                }
-                if (exists) break;
-            }
-
-            // If item doesn't exist anymore (picked up or despawned naturally), stop tracking it
-            if (!exists) {
+            org.bukkit.entity.Entity entity = resolveEntity(itemId);
+            if (entity == null || !(entity instanceof Item) || entity.isDead()) {
                 toRemove.add(itemId);
             }
         }
@@ -177,7 +171,7 @@ public class ItemDropTracker {
         }
 
         if (!toRemove.isEmpty()) {
-            LoggerUtils.debug("Cleaned up " + toRemove.size() + " items from tracking (picked up or naturally despawned).");
+            LoggerUtils.debug("Cleaned up " + toRemove.size() + " items from tracking.");
         }
     }
 
@@ -189,49 +183,34 @@ public class ItemDropTracker {
 
         long currentTime = System.currentTimeMillis();
 
-        // Check each tracked item
         for (Map.Entry<UUID, Long> entry : itemSpawnTimes.entrySet()) {
             UUID itemId = entry.getKey();
             long spawnTime = entry.getValue();
-            long age = (currentTime - spawnTime) / 1000; // Age in seconds
+            long age = (currentTime - spawnTime) / 1000;
             long timeRemaining = itemLifetime - age;
 
-            // Show countdown only in the last warning_seconds
             if (timeRemaining > 0 && timeRemaining <= warningTime) {
-                // Find the item entity
-                Bukkit.getWorlds().forEach(world -> {
-                    world.getEntities().stream()
-                        .filter(entity -> entity.getUniqueId().equals(itemId))
-                        .filter(entity -> entity instanceof Item)
-                        .forEach(entity -> {
-                            Item item = (Item) entity;
+                org.bukkit.entity.Entity entity = resolveEntity(itemId);
+                if (entity == null || !(entity instanceof Item)) continue;
+                
+                Item item = (Item) entity;
+                String warningMessage = ChatColor.YELLOW + "\u26A0 Items despawning in " +
+                                      ChatColor.RED + timeRemaining + ChatColor.YELLOW + " seconds!";
 
-                            // Show countdown message to nearby players
-                            String itemName = item.getItemStack().getType().name().replace("_", " ").toLowerCase();
-                            String warningMessage = ChatColor.YELLOW + "⚠ Items despawning in " +
-                                                  ChatColor.RED + timeRemaining + ChatColor.YELLOW +
-                                                  " seconds!";
-
-                            // Send message to players within 20 blocks
-                            world.getNearbyEntities(item.getLocation(), 20, 20, 20).stream()
-                                .filter(nearby -> nearby instanceof Player)
-                                .map(nearby -> (Player) nearby)
-                                .forEach(player -> {
-                                    // Send action bar message (compatible with Spigot)
-                                    sendActionBar(player, warningMessage);
-
-                                    // Send chat message at specific intervals (10, 5, 3, 2, 1 seconds)
-                                    if (timeRemaining == 10 || timeRemaining == 5 ||
-                                        timeRemaining == 3 || timeRemaining == 2 || timeRemaining == 1) {
-                                        player.sendMessage(ChatColor.RED + "[XreatOptimizer] " +
-                                                         ChatColor.YELLOW + "Items will disappear in " +
-                                                         ChatColor.RED + timeRemaining +
-                                                         ChatColor.YELLOW + " second" +
-                                                         (timeRemaining == 1 ? "" : "s") + "!");
-                                    }
-                                });
-                        });
-                });
+                item.getWorld().getNearbyEntities(item.getLocation(), 20, 20, 20).stream()
+                    .filter(nearby -> nearby instanceof Player)
+                    .map(nearby -> (Player) nearby)
+                    .forEach(player -> {
+                        sendActionBar(player, warningMessage);
+                        if (timeRemaining == 10 || timeRemaining == 5 ||
+                            timeRemaining == 3 || timeRemaining == 2 || timeRemaining == 1) {
+                            player.sendMessage(ChatColor.RED + "[XreatOptimizer] " +
+                                             ChatColor.YELLOW + "Items will disappear in " +
+                                             ChatColor.RED + timeRemaining +
+                                             ChatColor.YELLOW + " second" +
+                                             (timeRemaining == 1 ? "" : "s") + "!");
+                        }
+                    });
             }
         }
     }

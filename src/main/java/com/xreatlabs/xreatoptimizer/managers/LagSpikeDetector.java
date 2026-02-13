@@ -1,6 +1,8 @@
 package com.xreatlabs.xreatoptimizer.managers;
 
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
+import com.xreatlabs.xreatoptimizer.api.OptimizationEvent;
+import com.xreatlabs.xreatoptimizer.api.XreatOptimizerAPI;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
 import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
 import org.bukkit.Bukkit;
@@ -177,20 +179,31 @@ public class LagSpikeDetector {
      */
     private void onLagSpikeDetected(double tickTime) {
         inLagSpike = true;
-        
+
         LagSpike spike = new LagSpike(System.currentTimeMillis());
         spike.peakTickTime = tickTime;
         spike.duration = consecutiveLagTicks;
         spike.cause = analyzeCause(tickTime);
-        
+
         detectedSpikes.add(spike);
-        
+
         // Log warning
         LoggerUtils.warn(String.format(
             "LAG SPIKE DETECTED: %.2fms/tick | Cause: %s",
             tickTime, spike.cause
         ));
-        
+
+        // Fire lag spike event
+        double currentTPS = TPSUtils.getTPS();
+        OptimizationEvent.LagSpikeEvent lagSpikeEvent =
+            new OptimizationEvent.LagSpikeEvent(tickTime, spike.cause, currentTPS);
+        XreatOptimizerAPI.fireEvent(lagSpikeEvent);
+
+        // Trigger JFR recording if available
+        if (plugin.getJFRIntegration() != null && plugin.getJFRIntegration().isEnabled()) {
+            plugin.getJFRIntegration().recordLagSpike(tickTime, spike.cause);
+        }
+
         // Trigger mitigation
         if (tickTime > SEVERE_LAG_THRESHOLD) {
             mitigateSevereLag(spike);

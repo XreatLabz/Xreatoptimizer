@@ -11,6 +11,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 
 /**
  * Main event listener for server-wide optimization events
@@ -86,6 +88,20 @@ public class ServerEventListener implements Listener {
         // Track chunk unloads
         if (plugin.getPerformanceMonitor() != null) {
             plugin.getPerformanceMonitor().decrementChunkLoads();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onBlockBreak(BlockBreakEvent event) {
+        if (plugin.getPathfindingCache() != null) {
+            plugin.getPathfindingCache().invalidateArea(event.getBlock().getLocation(), 8.0);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onBlockPlace(BlockPlaceEvent event) {
+        if (plugin.getPathfindingCache() != null) {
+            plugin.getPathfindingCache().invalidateArea(event.getBlock().getLocation(), 8.0);
         }
     }
 }

@@ -17,7 +17,7 @@ if (envFile.exists()) {
 }
 
 group = 'com.xreatlabs'
-version = '1.1.0'
+version = '1.2.0'
 description = 'XreatOptimizer - Advanced Minecraft Server Performance Engine'
 
 java {
@@ -59,18 +59,26 @@ repositories {
 dependencies {
     // Spigot API - Using 1.16.5 for Java 11 compatibility (works with 1.8-1.21.10 at runtime)
     compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
-    
+
     // Paper API requires Java 17+ - commented out for Java 11 compatibility
     // compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
-    
+
     // Libby for runtime dependency management (commented out to allow build)
     // implementation 'org.incendo:libby-bukkit:2.2.2'
-    
+
     // Optional PlaceholderAPI support
     compileOnly 'me.clip:placeholderapi:2.11.6'
-    
+
+    // Prometheus metrics
+    implementation 'io.micrometer:micrometer-registry-prometheus:1.12.0'
+
+    // HTTP server for metrics endpoint
+    implementation 'com.sun.net.httpserver:http:20070405'
+
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    testImplementation 'org.mockito:mockito-core:5.8.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
 }
 
 shadowJar {

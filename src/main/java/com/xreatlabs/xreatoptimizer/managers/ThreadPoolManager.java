@@ -189,4 +189,26 @@ public class ThreadPoolManager {
             Thread.currentThread().interrupt();
         }
     }
+
+    /**
+     * Get total active thread count across all pools
+     * @return Total number of active threads
+     */
+    public int getActiveThreadCount() {
+        return chunkTaskPool.getActiveCount() +
+               entityCleanupPool.getActiveCount() +
+               analyticsPool.getActiveCount() +
+               ioPool.getActiveCount();
+    }
+
+    /**
+     * Get total queued task count across all pools
+     * @return Total number of queued tasks
+     */
+    public int getQueuedTaskCount() {
+        return chunkTaskPool.getQueue().size() +
+               entityCleanupPool.getQueue().size() +
+               analyticsPool.getQueue().size() +
+               ioPool.getQueue().size();
+    }
 }

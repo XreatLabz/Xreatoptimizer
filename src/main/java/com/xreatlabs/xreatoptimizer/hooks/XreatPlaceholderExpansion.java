@@ -25,7 +25,10 @@ import org.jetbrains.annotations.Nullable;
  * - %xreatopt_hibernated_chunks% - Hibernated chunk count
  * - %xreatopt_hibernated_entities% - Hibernated entity count
  * - %xreatopt_lag_spikes% - Number of lag spikes detected
+ * - %xreatopt_lag_score% - Lag severity score (0-100)
  * - %xreatopt_status% - Overall server status (Good/Warning/Critical)
+ * - %xreatopt_predicted_tps% - Predicted TPS (30s ahead)
+ * - %xreatopt_anomaly_detected% - Whether anomaly is detected
  */
 public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.PlaceholderExpansion {
     
@@ -213,7 +216,97 @@ public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.
             else color = "&c";
             return color + String.format("%.2fms", mspt);
         }
-        
+
+        // Lag score (0-100, higher = worse)
+        if (params.equalsIgnoreCase("lag_score")) {
+            double tps = TPSUtils.getTPS();
+            double mem = MemoryUtils.getMemoryUsagePercentage();
+
+            // TPS component: 0-50 (worse TPS = higher score)
+            double tpsScore = Math.max(0, (20.0 - tps) / 20.0 * 50.0);
+
+            // Memory component: 0-50 (higher memory = higher score)
+            double memScore = mem / 100.0 * 50.0;
+
+            int lagScore = (int) Math.min(100, tpsScore + memScore);
+            return String.valueOf(lagScore);
+        }
+
+        if (params.equalsIgnoreCase("lag_score_color")) {
+            double tps = TPSUtils.getTPS();
+            double mem = MemoryUtils.getMemoryUsagePercentage();
+            double tpsScore = Math.max(0, (20.0 - tps) / 20.0 * 50.0);
+            double memScore = mem / 100.0 * 50.0;
+            int lagScore = (int) Math.min(100, tpsScore + memScore);
+
+            String color;
+            if (lagScore < 20) color = "&a";
+            else if (lagScore < 40) color = "&e";
+            else if (lagScore < 60) color = "&6";
+            else color = "&c";
+
+            return color + lagScore;
+        }
+
+        // Predicted TPS (from PredictiveEngine)
+        if (params.equalsIgnoreCase("predicted_tps")) {
+            if (plugin.getPredictiveEngine() != null && plugin.getPredictiveEngine().isRunning()) {
+                try {
+                    com.xreatlabs.xreatoptimizer.ai.PredictiveEngine.Prediction prediction =
+                        plugin.getPredictiveEngine().predictFuture(30);
+                    return String.format("%.2f", prediction.predictedTps);
+                } catch (Exception e) {
+                    return "N/A";
+                }
+            }
+            return "N/A";
+        }
+
+        if (params.equalsIgnoreCase("predicted_tps_color")) {
+            if (plugin.getPredictiveEngine() != null && plugin.getPredictiveEngine().isRunning()) {
+                try {
+                    com.xreatlabs.xreatoptimizer.ai.PredictiveEngine.Prediction prediction =
+                        plugin.getPredictiveEngine().predictFuture(30);
+                    double tps = prediction.predictedTps;
+                    String color;
+                    if (tps >= 19.0) color = "&a";
+                    else if (tps >= 17.0) color = "&e";
+                    else if (tps >= 14.0) color = "&6";
+                    else color = "&c";
+                    return color + String.format("%.2f", tps);
+                } catch (Exception e) {
+                    return "&7N/A";
+                }
+            }
+            return "&7N/A";
+        }
+
+        // Anomaly detection status
+        if (params.equalsIgnoreCase("anomaly_detected")) {
+            if (plugin.getAnomalyDetector() != null && plugin.getAnomalyDetector().isRunning()) {
+                // Check if current conditions indicate anomaly
+                double tps = TPSUtils.getTPS();
+                double mem = MemoryUtils.getMemoryUsagePercentage();
+
+                boolean anomaly = tps < 15.0 || mem > 85.0;
+                return anomaly ? "&cYes" : "&aNo";
+            }
+            return "&7N/A";
+        }
+
+        if (params.equalsIgnoreCase("prediction_confidence")) {
+            if (plugin.getPredictiveEngine() != null && plugin.getPredictiveEngine().isRunning()) {
+                try {
+                    com.xreatlabs.xreatoptimizer.ai.PredictiveEngine.Prediction prediction =
+                        plugin.getPredictiveEngine().predictFuture(30);
+                    return String.format("%.0f%%", prediction.confidence * 100);
+                } catch (Exception e) {
+                    return "N/A";
+                }
+            }
+            return "N/A";
+        }
+
         return null; // Unknown placeholder
     }
 }

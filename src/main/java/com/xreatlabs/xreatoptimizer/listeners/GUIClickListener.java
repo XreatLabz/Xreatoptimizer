@@ -204,10 +204,10 @@ public class GUIClickListener implements Listener {
     private void setProfile(Player player, String profile) {
         try {
             if (plugin.getOptimizationManager() != null) {
-                // Set the profile through the optimization manager
-                player.sendMessage(ChatColor.GREEN + "Switching to " + profile + " optimization profile...");
-                // This would need to be implemented in OptimizationManager
-                player.sendMessage(ChatColor.YELLOW + "Profile changed to: " + ChatColor.GOLD + profile);
+                com.xreatlabs.xreatoptimizer.managers.OptimizationManager.OptimizationProfile p =
+                    com.xreatlabs.xreatoptimizer.managers.OptimizationManager.OptimizationProfile.valueOf(profile);
+                plugin.getOptimizationManager().setProfile(p);
+                player.sendMessage(ChatColor.GREEN + "Profile changed to: " + ChatColor.GOLD + profile);
             }
         } catch (Exception e) {
             player.sendMessage(ChatColor.RED + "Failed to change profile: " + e.getMessage());

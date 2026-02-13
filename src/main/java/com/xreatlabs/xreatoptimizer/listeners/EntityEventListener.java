@@ -70,7 +70,11 @@ public class EntityEventListener implements Listener {
         // Only apply limits to natural mob spawns when entity count exceeds limit
         if (plugin.getOptimizationManager() != null) {
             int currentEntities = event.getLocation().getWorld().getEntities().size();
-            int maxEntities = plugin.getConfig().getInt("entity_limiter.default_entities_per_world", 500);
+            // Use per-world config if available, fall back to global
+            String worldName = event.getLocation().getWorld().getName();
+            int maxEntities = plugin.getWorldConfig() != null ?
+                plugin.getWorldConfig().getMaxEntities(worldName) :
+                plugin.getConfig().getInt("entity_limiter.default_entities_per_world", 500);
 
             // Only cancel spawn if world is over its entity limit
             if (currentEntities >= maxEntities) {
@@ -115,7 +119,10 @@ public class EntityEventListener implements Listener {
         // Only limit NATURAL spawns when enabled and world entity count exceeds limit
         if (reason == CreatureSpawnEvent.SpawnReason.NATURAL && plugin.getOptimizationManager() != null) {
             int currentEntities = event.getLocation().getWorld().getEntities().size();
-            int maxEntities = plugin.getConfig().getInt("entity_limiter.default_entities_per_world", 500);
+            String worldName = event.getLocation().getWorld().getName();
+            int maxEntities = plugin.getWorldConfig() != null ?
+                plugin.getWorldConfig().getMaxEntities(worldName) :
+                plugin.getConfig().getInt("entity_limiter.default_entities_per_world", 500);
 
             // Only cancel spawn if world is over its entity limit
             if (currentEntities >= maxEntities) {

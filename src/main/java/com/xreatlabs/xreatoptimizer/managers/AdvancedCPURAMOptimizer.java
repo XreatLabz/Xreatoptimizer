@@ -28,6 +28,7 @@ public class AdvancedCPURAMOptimizer {
     private double peakCPUUsage = 0.0;
     private long peakRAMUsage = 0L;
     private boolean highUsageDetected = false;
+    private OptimizationManager.OptimizationProfile currentIntensity = OptimizationManager.OptimizationProfile.NORMAL;
 
     public AdvancedCPURAMOptimizer(XreatOptimizer plugin) {
         this.plugin = plugin;
@@ -74,12 +75,25 @@ public class AdvancedCPURAMOptimizer {
         if (cpuUsage > peakCPUUsage) peakCPUUsage = cpuUsage;
         if (ramUsage > peakRAMUsage) peakRAMUsage = ramUsage;
         
+        // Adjust thresholds based on current intensity from OptimizationManager
+        double cpuHighThreshold = 150;
+        double cpuEmergencyThreshold = 200;
+        double memHighThreshold = 70;
+        double memEmergencyThreshold = 80;
+        if (currentIntensity == OptimizationManager.OptimizationProfile.AGGRESSIVE) {
+            cpuHighThreshold = 100; cpuEmergencyThreshold = 150;
+            memHighThreshold = 60; memEmergencyThreshold = 70;
+        } else if (currentIntensity == OptimizationManager.OptimizationProfile.EMERGENCY) {
+            cpuHighThreshold = 60; cpuEmergencyThreshold = 100;
+            memHighThreshold = 50; memEmergencyThreshold = 60;
+        }
+        
         // Check if we need aggressive optimizations
-        if (cpuUsage > 150 || memoryPercentage > 70) { // High usage detected
+        if (cpuUsage > cpuHighThreshold || memoryPercentage > memHighThreshold) {
             highUsageDetected = true;
             LoggerUtils.debug("High usage detected: CPU=" + cpuUsage + "%, RAM=" + memoryPercentage + "%");
             
-            if (cpuUsage > 200 || memoryPercentage > 80) {
+            if (cpuUsage > cpuEmergencyThreshold || memoryPercentage > memEmergencyThreshold) {
                 // Very high usage - apply emergency optimizations
                 applyEmergencyOptimizations(cpuUsage, memoryPercentage);
             } else {
@@ -94,8 +108,8 @@ public class AdvancedCPURAMOptimizer {
         
         // Log current usage periodically
         if (System.currentTimeMillis() % 60000 < 2000) { // Every minute
-            LoggerUtils.info("CPU: " + String.format("%.1f", cpuUsage) + "%, Heap: " + 
-                           String.format("%.1f", memoryPercentage) + "% (" + ramUsage + "MB used, " + 
+            LoggerUtils.info("Process CPU: " + String.format("%.1f", cpuUsage) + "%, Heap: " +
+                           String.format("%.1f", memoryPercentage) + "% (" + ramUsage + "MB used, " +
                            MemoryUtils.getMaxMemoryMB() + "MB max)");
         }
     }
@@ -239,63 +253,74 @@ public class AdvancedCPURAMOptimizer {
         return removed;
     }
     
-    /**
-     * Increases hibernation radius for more aggressive optimization
-     */
     private void increaseHibernateRadius() {
-        // In a real implementation, this would interface with HibernateManager
-        // to temporarily increase the hibernation radius
-        LoggerUtils.debug("Increased hibernation effectiveness");
+        HibernateManager hm = plugin.getHibernateManager();
+        if (hm != null && hm.isRunning()) {
+            hm.setRadius(48);
+        }
     }
     
-    /**
-     * Maximizes hibernation settings for emergency situations
-     */
     private void maximizeHibernateSettings() {
-        // Set hibernation to maximum effectiveness
-        LoggerUtils.debug("Maximized hibernation settings");
+        HibernateManager hm = plugin.getHibernateManager();
+        if (hm != null && hm.isRunning()) {
+            hm.setRadius(32);
+        }
     }
     
-    /**
-     * Restores normal hibernation settings
-     */
     private void restoreNormalHibernateSettings() {
-        // Restore hibernation to normal settings
-        LoggerUtils.debug("Restored normal hibernation settings");
+        HibernateManager hm = plugin.getHibernateManager();
+        if (hm != null && hm.isRunning()) {
+            int configRadius = plugin.getConfig().getInt("hibernate.radius", 64);
+            hm.setRadius(configRadius);
+        }
     }
     
-    /**
-     * Optimizes chunk loading to reduce memory usage
-     */
     private void optimizeChunkLoading() {
-        // In a real implementation, this would interface with the chunk system
-        // to unload unnecessary chunks more aggressively
-        LoggerUtils.debug("Optimized chunk loading patterns");
+        MemorySaver ms = plugin.getMemorySaver();
+        if (ms != null) {
+            ms.clearCache();
+        }
+        // Unload distant chunks across all worlds
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (World world : Bukkit.getWorlds()) {
+                for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
+                    boolean nearPlayer = false;
+                    for (org.bukkit.entity.Player p : world.getPlayers()) {
+                        int dx = Math.abs(p.getLocation().getChunk().getX() - chunk.getX());
+                        int dz = Math.abs(p.getLocation().getChunk().getZ() - chunk.getZ());
+                        if (dx <= 6 && dz <= 6) { nearPlayer = true; break; }
+                    }
+                    if (!nearPlayer) chunk.unload(true);
+                }
+            }
+        });
     }
     
-    /**
-     * Throttles entity processing to reduce CPU usage
-     */
     private void throttleEntityProcessing() {
-        // Apply more aggressive tick throttling
-        LoggerUtils.debug("Applied aggressive entity processing throttling");
+        if (plugin.getEntityCullingManager() != null) {
+            plugin.getEntityCullingManager().setEnabled(true);
+        }
+        if (plugin.getAdvancedEntityOptimizer() != null) {
+            plugin.getAdvancedEntityOptimizer().setEnabled(true);
+        }
     }
     
-    /**
-     * Restores normal entity processing
-     */
     private void restoreNormalEntityProcessing() {
-        // Restore normal processing rates
-        LoggerUtils.debug("Restored normal entity processing");
+        if (plugin.getEntityCullingManager() != null) {
+            plugin.getEntityCullingManager().setEnabled(false);
+        }
     }
     
-    /**
-     * Reduces world activity to save resources
-     */
     private void reduceWorldActivity() {
-        // In a real implementation, this would reduce world simulation rates
-        // or temporarily disable certain world features
-        LoggerUtils.debug("Reduced world activity for optimization");
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (World world : Bukkit.getWorlds()) {
+                if (world.getPlayers().isEmpty()) {
+                    try {
+                        world.getClass().getMethod("setViewDistance", int.class).invoke(world, 4);
+                    } catch (Exception ignored) {}
+                }
+            }
+        });
     }
     
     /**
@@ -369,5 +394,9 @@ public class AdvancedCPURAMOptimizer {
      */
     public long getPeakRAMUsage() {
         return peakRAMUsage;
+    }
+    
+    public void setIntensity(OptimizationManager.OptimizationProfile profile) {
+        this.currentIntensity = profile;
     }
 }

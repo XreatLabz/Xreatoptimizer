@@ -1,6 +1,7 @@
 package com.xreatlabs.xreatoptimizer.managers;
 
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
+import com.xreatlabs.xreatoptimizer.storage.StatisticsStorage;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
 import com.xreatlabs.xreatoptimizer.utils.MemoryUtils;
 import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
@@ -12,23 +13,42 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
- * Monitors server performance metrics
+ * Monitors server performance metrics with proper historical tracking.
  */
 public class PerformanceMonitor {
     private final XreatOptimizer plugin;
     private BukkitTask monitorTask;
     private final Map<String, Object> metrics = new ConcurrentHashMap<>();
-    private final Map<String, Double> historicalData = new ConcurrentHashMap<>();
+    
+    // Rolling window historical data (last 1 hour = 720 samples at 5-second intervals)
+    private static final int MAX_HISTORY = 720;
+    private final ConcurrentLinkedDeque<Double> tpsHistory = new ConcurrentLinkedDeque<>();
+    private final ConcurrentLinkedDeque<Double> memoryHistory = new ConcurrentLinkedDeque<>();
+    private final ConcurrentLinkedDeque<Integer> entityHistory = new ConcurrentLinkedDeque<>();
+    private final ConcurrentLinkedDeque<Integer> chunkHistory = new ConcurrentLinkedDeque<>();
+    
+    // Statistics accumulators
+    private double minTps = 20.0;
+    private double maxTps = 20.0;
+    private double sumTps = 0.0;
+    private int tpsCount = 0;
+    
+    private double minMemory = 100.0;
+    private double maxMemory = 0.0;
+    private double sumMemory = 0.0;
+    private int memoryCount = 0;
+    
+    private int maxEntities = 0;
+    private int maxChunks = 0;
+    private int maxPlayers = 0;
     
     public PerformanceMonitor(XreatOptimizer plugin) {
         this.plugin = plugin;
-        // Initialize metrics with default values
         metrics.put("tps", 20.0);
         metrics.put("used_memory_mb", 0L);
         metrics.put("max_memory_mb", 0L);
@@ -39,24 +59,16 @@ public class PerformanceMonitor {
         metrics.put("player_count", 0);
     }
     
-    /**
-     * Starts the performance monitoring system
-     */
     public void start() {
-        // Run performance monitoring every 5 seconds (on main thread for entity/chunk access)
         monitorTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::updateMetrics,
-            100L,  // Initial delay (5 seconds)
-            100L   // Repeat interval (5 seconds = 100 ticks)
+            100L,
+            100L
         );
-        
         LoggerUtils.info("Performance monitoring started.");
     }
     
-    /**
-     * Stops the performance monitoring system
-     */
     public void stop() {
         if (monitorTask != null) {
             monitorTask.cancel();
@@ -64,15 +76,10 @@ public class PerformanceMonitor {
         }
     }
     
-    /**
-     * Updates all performance metrics
-     */
     private void updateMetrics() {
-        // Update TPS
         double currentTPS = TPSUtils.getTPS();
         metrics.put("tps", currentTPS);
         
-        // Update memory usage
         long usedMemory = MemoryUtils.getUsedMemoryMB();
         long maxMemory = MemoryUtils.getMaxMemoryMB();
         double memoryPercentage = MemoryUtils.getMemoryUsagePercentage();
@@ -80,27 +87,21 @@ public class PerformanceMonitor {
         metrics.put("max_memory_mb", maxMemory);
         metrics.put("memory_percentage", memoryPercentage);
         
-        // Update tick time
         double avgTickTime = TPSUtils.getAverageTickTime();
         metrics.put("avg_tick_time_ms", avgTickTime);
         
-        // Update entity count - this needs to be scheduled on main thread
         int entityCount = 0;
         try {
             if (Bukkit.isPrimaryThread()) {
                 entityCount = com.xreatlabs.xreatoptimizer.utils.EntityUtils.getTotalEntityCount();
             } else {
-                // For async operations, we'll use a scheduled call or cache the value
-                // For now, we'll use a safe default to prevent the error
-                // The proper approach would be to schedule this on main thread
                 entityCount = (int) metrics.getOrDefault("entity_count", 0);
             }
         } catch (Exception e) {
-            entityCount = (int) metrics.getOrDefault("entity_count", 0); // Use last known value
+            entityCount = (int) metrics.getOrDefault("entity_count", 0);
         }
         metrics.put("entity_count", entityCount);
         
-        // Update chunk count - also needs main thread
         int chunkCount = 0;
         try {
             if (Bukkit.isPrimaryThread()) {
@@ -108,32 +109,70 @@ public class PerformanceMonitor {
                     chunkCount += world.getLoadedChunks().length;
                 }
             } else {
-                // Use cached value for async operations
                 chunkCount = (int) metrics.getOrDefault("chunk_count", 0);
             }
         } catch (Exception e) {
-            chunkCount = (int) metrics.getOrDefault("chunk_count", 0); // Use last known value
+            chunkCount = (int) metrics.getOrDefault("chunk_count", 0);
         }
         metrics.put("chunk_count", chunkCount);
         
-        // Update player count
-        metrics.put("player_count", Bukkit.getOnlinePlayers().size());
+        int playerCount = Bukkit.getOnlinePlayers().size();
+        metrics.put("player_count", playerCount);
         
-        // Log metrics periodically for debugging
-        if (System.currentTimeMillis() % 60000 < 5000) { // Every minute
+        // Update rolling window history
+        addToHistory(currentTPS, memoryPercentage, entityCount, chunkCount);
+        
+        // Update peak statistics
+        updateStatistics(currentTPS, memoryPercentage, entityCount, chunkCount, playerCount);
+        
+        if (System.currentTimeMillis() % 60000 < 5000) {
             LoggerUtils.debug("Performance Metrics - TPS: " + String.format("%.2f", currentTPS) + 
                              ", Heap Usage: " + String.format("%.1f", memoryPercentage) + "% (" + 
                              usedMemory + "MB/" + maxMemory + "MB), Entities: " + entityCount + 
                              ", Chunks: " + chunkCount);
         }
         
-        // Store historical data for trends
-        historicalData.put("tps_" + System.currentTimeMillis(), currentTPS);
-        historicalData.put("memory_" + System.currentTimeMillis(), memoryPercentage);
-        historicalData.put("entities_" + System.currentTimeMillis(), (double) entityCount);
+        // Feed StatisticsStorage
+        feedStatisticsStorage(currentTPS, memoryPercentage, entityCount, chunkCount);
         
-        // Generate reports if needed
         maybeGenerateReport();
+    }
+    
+    private void addToHistory(double tps, double memory, int entities, int chunks) {
+        tpsHistory.addLast(tps);
+        memoryHistory.addLast(memory);
+        entityHistory.addLast(entities);
+        chunkHistory.addLast(chunks);
+        
+        while (tpsHistory.size() > MAX_HISTORY) tpsHistory.removeFirst();
+        while (memoryHistory.size() > MAX_HISTORY) memoryHistory.removeFirst();
+        while (entityHistory.size() > MAX_HISTORY) entityHistory.removeFirst();
+        while (chunkHistory.size() > MAX_HISTORY) chunkHistory.removeFirst();
+    }
+    
+    private void updateStatistics(double tps, double memory, int entities, int chunks, int players) {
+        minTps = Math.min(minTps, tps);
+        maxTps = Math.max(maxTps, tps);
+        sumTps += tps;
+        tpsCount++;
+        
+        minMemory = Math.min(minMemory, memory);
+        maxMemory = Math.max(maxMemory, memory);
+        sumMemory += memory;
+        memoryCount++;
+        
+        maxEntities = Math.max(maxEntities, entities);
+        maxChunks = Math.max(maxChunks, chunks);
+        maxPlayers = Math.max(maxPlayers, players);
+    }
+    
+    private void feedStatisticsStorage(double tps, double memory, int entities, int chunks) {
+        StatisticsStorage storage = plugin.getStatisticsStorage();
+        if (storage != null) {
+            String profile = plugin.getOptimizationManager() != null ? 
+                plugin.getOptimizationManager().getEffectiveProfile().name() : "NORMAL";
+            storage.recordSnapshot(tps, memory, entities, chunks, profile);
+        }
     }
     
     /**
@@ -282,48 +321,70 @@ public class PerformanceMonitor {
         return (int) metrics.getOrDefault("chunk_count", 0);
     }
     
-    // Helper methods for report generation
+    // Historical report helper methods using rolling window data
     private double getAverageTPS() {
-        return (double) metrics.getOrDefault("tps", 20.0);
+        return tpsCount > 0 ? sumTps / tpsCount : 20.0;
     }
     
     private double getPeakMemoryUsage() {
-        return (double) metrics.getOrDefault("memory_percentage", 0.0);
+        return maxMemory;
     }
     
     private int getMaxEntityCount() {
-        return (int) metrics.getOrDefault("entity_count", 0);
+        return maxEntities;
     }
     
     private int getMaxChunkCount() {
-        return (int) metrics.getOrDefault("chunk_count", 0);
+        return maxChunks;
     }
     
     private int getMaxPlayerCount() {
-        return (int) metrics.getOrDefault("player_count", 0);
+        return maxPlayers;
     }
     
     private double getAverageMemoryUsage() {
-        return (double) metrics.getOrDefault("memory_percentage", 0.0);
+        return memoryCount > 0 ? sumMemory / memoryCount : 0.0;
     }
     
     private int getAverageEntityCount() {
-        return (int) metrics.getOrDefault("entity_count", 0);
+        if (entityHistory.isEmpty()) return 0;
+        long sum = 0;
+        for (int v : entityHistory) sum += v;
+        return (int) (sum / entityHistory.size());
     }
     
     private int getAverageChunkCount() {
-        return (int) metrics.getOrDefault("chunk_count", 0);
+        if (chunkHistory.isEmpty()) return 0;
+        long sum = 0;
+        for (int v : chunkHistory) sum += v;
+        return (int) (sum / chunkHistory.size());
     }
     
     private int getTimeUnderTPSThreshold(double threshold) {
-        // Simplified logic - in a real implementation would track over time
-        return getCurrentTPS() < threshold ? 1 : 0; // Placeholder
+        int count = 0;
+        for (double tps : tpsHistory) {
+            if (tps < threshold) count++;
+        }
+        // Each sample is ~5 seconds, convert to approximate minutes
+        return (count * 5) / 60;
     }
     
     private int getMemoryPressureEvents() {
-        // Simplified logic - in a real implementation would track memory pressure events
-        return getCurrentMemoryPercentage() > 80.0 ? 1 : 0; // Placeholder
+        int events = 0;
+        boolean inPressure = false;
+        for (double mem : memoryHistory) {
+            if (mem > 80.0 && !inPressure) {
+                events++;
+                inPressure = true;
+            } else if (mem <= 80.0) {
+                inPressure = false;
+            }
+        }
+        return events;
     }
+    
+    public double getMinTps() { return minTps; }
+    public double getMaxTps() { return maxTps; }
 
     /**
      * Update player count metric

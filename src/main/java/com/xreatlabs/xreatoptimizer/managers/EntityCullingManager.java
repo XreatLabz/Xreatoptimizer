@@ -7,6 +7,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 
@@ -17,24 +18,33 @@ public class EntityCullingManager {
     private final XreatOptimizer plugin;
     private final Map<UUID, Set<UUID>> playerVisibleEntities = new HashMap<>();
     private volatile boolean isRunning = false;
+    private BukkitTask cullingTask;
 
     public EntityCullingManager(XreatOptimizer plugin) {
         this.plugin = plugin;
     }
     
-    /**
-     * Starts the entity culling system
-     */
     public void start() {
         isRunning = true;
+        cullingTask = Bukkit.getScheduler().runTaskTimer(
+            plugin,
+            () -> {
+                if (!isRunning) return;
+                for (World world : Bukkit.getWorlds()) {
+                    processWorldVisibility(world);
+                }
+            },
+            100L,
+            100L // every 5 seconds
+        );
         LoggerUtils.info("Entity culling manager started.");
     }
     
-    /**
-     * Stops the entity culling system
-     */
     public void stop() {
         isRunning = false;
+        if (cullingTask != null) {
+            cullingTask.cancel();
+        }
         playerVisibleEntities.clear();
         LoggerUtils.info("Entity culling manager stopped.");
     }

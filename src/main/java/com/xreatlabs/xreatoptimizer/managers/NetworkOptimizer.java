@@ -78,20 +78,40 @@ public class NetworkOptimizer {
     }
     
     /**
-     * Runs network optimization cycle
+     * Runs network optimization cycle.
+     * Tracks per-player stats and adjusts entity tracking ranges based on TPS.
      */
     private void runNetworkOptimizations() {
         if (!isRunning) return;
         
-        // Update stats for all online players
+        double tps = com.xreatlabs.xreatoptimizer.utils.TPSUtils.getTPS();
+        
         for (Player player : Bukkit.getOnlinePlayers()) {
             playerStats.computeIfAbsent(player, k -> new PlayerNetworkStats());
         }
         
-        // Log network optimization stats periodically
-        if (System.currentTimeMillis() % 60000 < 5000) { // Every minute
-            LoggerUtils.debug("Network optimization stats: Processed players=" + 
-                             Bukkit.getOnlinePlayers().size());
+        // Adjust entity tracking range via per-player view distance when TPS is low
+        if (plugin.getVersionAdapter().isVersionAtLeast(1, 14)) {
+            int targetSendDistance = tps > 19.0 ? 10 : tps > 17.0 ? 6 : 4;
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                try {
+                    java.lang.reflect.Method m = player.getClass().getMethod("setSendViewDistance", int.class);
+                    m.invoke(player, targetSendDistance);
+                } catch (NoSuchMethodException e) {
+                    // Not Paper 1.19.4+ -- skip silently
+                    break;
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        }
+        
+        // Cleanup stale entries
+        playerStats.keySet().removeIf(p -> !p.isOnline());
+        
+        if (System.currentTimeMillis() % 60000 < 5000) {
+            LoggerUtils.debug("Network optimization: " + Bukkit.getOnlinePlayers().size() + 
+                " players, TPS=" + String.format("%.1f", tps));
         }
     }
     

@@ -41,35 +41,39 @@ public class ReportCommand implements CommandExecutor {
     }
     
     private boolean generateCurrentReport(CommandSender sender) {
-        PerformanceMonitor monitor = plugin.getPerformanceMonitor();
-        
-        // Generate a current report
         File reportsDir = new File(plugin.getDataFolder(), "reports");
         if (!reportsDir.exists()) {
             reportsDir.mkdirs();
         }
         
-        // Create a report file with timestamp
         String timestamp = java.time.LocalDateTime.now().toString().replace(":", "-");
         File reportFile = new File(reportsDir, "manual_report_" + timestamp + ".txt");
         
         try {
             java.io.FileWriter writer = new java.io.FileWriter(reportFile);
-            writer.write("XreatOptimizer Manual Performance Report\n");
-            writer.write("Generated at: " + java.time.LocalDateTime.now() + "\n");
-            writer.write("========================================\n\n");
             
-            writer.write("Current Metrics:\n");
-            writer.write("- TPS: " + String.format("%.2f", monitor.getCurrentTPS()) + "\n");
-            writer.write("- Memory Usage: " + String.format("%.1f", monitor.getCurrentMemoryPercentage()) + "%\n");
-            writer.write("- Entities: " + monitor.getCurrentEntityCount() + "\n");
-            writer.write("- Chunks: " + monitor.getCurrentChunkCount() + "\n");
-            writer.write("- Players: " + org.bukkit.Bukkit.getOnlinePlayers().size() + "\n");
+            // Use StatisticsStorage for historical data if available
+            if (plugin.getStatisticsStorage() != null) {
+                String report = plugin.getStatisticsStorage().generateReport(1);
+                writer.write(report);
+            } else {
+                // Fallback to current metrics
+                PerformanceMonitor monitor = plugin.getPerformanceMonitor();
+                writer.write("XreatOptimizer Manual Performance Report\n");
+                writer.write("Generated at: " + java.time.LocalDateTime.now() + "\n");
+                writer.write("========================================\n\n");
+                writer.write("Current Metrics:\n");
+                writer.write("- TPS: " + String.format("%.2f", monitor.getCurrentTPS()) + "\n");
+                writer.write("- Memory Usage: " + String.format("%.1f", monitor.getCurrentMemoryPercentage()) + "%\n");
+                writer.write("- Entities: " + monitor.getCurrentEntityCount() + "\n");
+                writer.write("- Chunks: " + monitor.getCurrentChunkCount() + "\n");
+                writer.write("- Players: " + org.bukkit.Bukkit.getOnlinePlayers().size() + "\n");
+            }
             
             writer.close();
             
-            sender.sendMessage(ChatColor.GREEN + "Manual report generated: " + reportFile.getName());
-            sender.sendMessage(ChatColor.YELLOW + "File location: " + reportFile.getAbsolutePath());
+            sender.sendMessage(ChatColor.GREEN + "Report generated: " + reportFile.getName());
+            sender.sendMessage(ChatColor.YELLOW + "File: " + reportFile.getAbsolutePath());
             
         } catch (Exception e) {
             LoggerUtils.error("Could not generate report", e);

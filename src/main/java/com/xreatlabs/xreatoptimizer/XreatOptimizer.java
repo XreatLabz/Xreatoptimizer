@@ -16,6 +16,7 @@ import com.xreatlabs.xreatoptimizer.metrics.Metrics;
 import com.xreatlabs.xreatoptimizer.web.WebDashboard;
 import com.xreatlabs.xreatoptimizer.version.VersionAdapter;
 import com.xreatlabs.xreatoptimizer.ai.AutoTuningEngine;
+import com.xreatlabs.xreatoptimizer.api.XreatOptimizerAPI;
 // import org.incendo.libby.BukkitLibraryManager; // Commented out due to dependency issues
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -24,8 +25,9 @@ import org.bukkit.plugin.java.JavaPlugin;
  * Compatible with Minecraft 1.8 through 1.21.10
  */
 public class XreatOptimizer extends JavaPlugin {
-    
+
     private static XreatOptimizer instance;
+    private long startTime;
     private VersionAdapter versionAdapter;
     private OptimizationManager optimizationManager;
     private ThreadPoolManager threadPoolManager;
@@ -57,14 +59,22 @@ public class XreatOptimizer extends JavaPlugin {
     private NotificationManager notificationManager;
     private Metrics metrics;
     private WebDashboard webDashboard;
+    private com.xreatlabs.xreatoptimizer.metrics.PrometheusExporter prometheusExporter;
+    private com.xreatlabs.xreatoptimizer.ai.PredictiveEngine predictiveEngine;
+    private com.xreatlabs.xreatoptimizer.ai.AnomalyDetector anomalyDetector;
+    private com.xreatlabs.xreatoptimizer.profiling.JFRIntegration jfrIntegration;
 
     @Override
     public void onEnable() {
         instance = this;
-        
+        startTime = System.currentTimeMillis();
+
+        // Initialize API first
+        XreatOptimizerAPI.initialize(this);
+
         // Display startup banner
         getLogger().info(Constants.STARTUP_BANNER);
-        
+
         // Initialize self protection manager first
         selfProtectionManager = new SelfProtectionManager(this);
         selfProtectionManager.runInitialSecurityChecks();
@@ -108,7 +118,14 @@ public class XreatOptimizer extends JavaPlugin {
         
         // Initialize AI auto-tuning engine
         autoTuningEngine = new AutoTuningEngine(this);
-        
+
+        // Initialize predictive engine and anomaly detector
+        predictiveEngine = new com.xreatlabs.xreatoptimizer.ai.PredictiveEngine(this);
+        anomalyDetector = new com.xreatlabs.xreatoptimizer.ai.AnomalyDetector(this);
+
+        // Initialize JFR integration
+        jfrIntegration = new com.xreatlabs.xreatoptimizer.profiling.JFRIntegration(this);
+
         // Register commands with tab completion
         OptimizeCommand optimizeCommand = new OptimizeCommand(this);
         getCommand("xreatopt").setExecutor(optimizeCommand);
@@ -134,7 +151,10 @@ public class XreatOptimizer extends JavaPlugin {
         
         // Initialize metrics
         metrics = new Metrics(this);
-        
+
+        // Initialize Prometheus exporter
+        prometheusExporter = new com.xreatlabs.xreatoptimizer.metrics.PrometheusExporter(this);
+
         // Initialize web dashboard
         webDashboard = new WebDashboard(this);
 
@@ -163,10 +183,24 @@ public class XreatOptimizer extends JavaPlugin {
         pathfindingCache.start();
         
         autoTuningEngine.start();
-        
+
+        // Start predictive engine and anomaly detector
+        predictiveEngine.start();
+        anomalyDetector.start();
+
+        // Start JFR integration
+        if (jfrIntegration != null) {
+            jfrIntegration.start();
+        }
+
         // Register PlaceholderAPI expansion if available
         registerPlaceholderExpansion();
-        
+
+        // Start Prometheus exporter
+        if (prometheusExporter != null) {
+            prometheusExporter.start();
+        }
+
         // Start web dashboard
         if (webDashboard != null) {
             webDashboard.start();
@@ -202,7 +236,19 @@ public class XreatOptimizer extends JavaPlugin {
         if (autoTuningEngine != null) {
             autoTuningEngine.stop();
         }
-        
+
+        if (predictiveEngine != null) {
+            predictiveEngine.stop();
+        }
+
+        if (anomalyDetector != null) {
+            anomalyDetector.stop();
+        }
+
+        if (jfrIntegration != null) {
+            jfrIntegration.stop();
+        }
+
         if (advancedEntityOptimizer != null) {
             advancedEntityOptimizer.stop();
         }
@@ -260,7 +306,12 @@ public class XreatOptimizer extends JavaPlugin {
         if (metrics != null) {
             metrics.shutdown();
         }
-        
+
+        // Shutdown Prometheus exporter
+        if (prometheusExporter != null) {
+            prometheusExporter.stop();
+        }
+
         // Shutdown web dashboard
         if (webDashboard != null) {
             webDashboard.stop();
@@ -270,12 +321,12 @@ public class XreatOptimizer extends JavaPlugin {
         if (threadPoolManager != null) {
             threadPoolManager.shutdown();
         }
-        
+
         // Shutdown Libby manager
         // if (libbyManager != null) {  // Commented out due to dependency issues
         //     libbyManager.shutdown();
         // }
-        
+
         getLogger().info("XreatOptimizer has been disabled!");
     }
 
@@ -403,7 +454,27 @@ public class XreatOptimizer extends JavaPlugin {
     public WebDashboard getWebDashboard() {
         return webDashboard;
     }
-    
+
+    public com.xreatlabs.xreatoptimizer.metrics.PrometheusExporter getPrometheusExporter() {
+        return prometheusExporter;
+    }
+
+    public com.xreatlabs.xreatoptimizer.ai.PredictiveEngine getPredictiveEngine() {
+        return predictiveEngine;
+    }
+
+    public com.xreatlabs.xreatoptimizer.ai.AnomalyDetector getAnomalyDetector() {
+        return anomalyDetector;
+    }
+
+    public com.xreatlabs.xreatoptimizer.profiling.JFRIntegration getJFRIntegration() {
+        return jfrIntegration;
+    }
+
+    public long getStartTime() {
+        return startTime;
+    }
+
     /**
      * Register PlaceholderAPI expansion if available
      */

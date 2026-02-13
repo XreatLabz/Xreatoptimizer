@@ -1,6 +1,8 @@
 package com.xreatlabs.xreatoptimizer.managers;
 
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
+import com.xreatlabs.xreatoptimizer.api.OptimizationEvent;
+import com.xreatlabs.xreatoptimizer.api.XreatOptimizerAPI;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
 import com.xreatlabs.xreatoptimizer.utils.MemoryUtils;
 import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
@@ -23,6 +25,8 @@ public class MemorySaver {
     private final Map<String, SoftReference<CachedChunkData>> chunkCache = new ConcurrentHashMap<>();
     private final Set<String> recentlyAccessedChunks = ConcurrentHashMap.newKeySet();
     private volatile boolean isRunning = false;
+    private boolean compressionEnabled = true;
+    private int memoryThresholdPercent = 80;
     
     // Data class to store cached chunk information
     private static class CachedChunkData {
@@ -102,24 +106,43 @@ public class MemorySaver {
      */
     private void runMemoryOptimization() {
         if (!isRunning) return;
-        
-        // Check memory pressure
-        if (MemoryUtils.isMemoryPressureHigh()) {
-            LoggerUtils.debug("Memory pressure detected, running optimization...");
-            
-            // Offload idle chunks
+
+        double memoryPercent = MemoryUtils.getMemoryUsagePercentage();
+
+        // Use the dynamic threshold instead of hardcoded check
+        if (memoryPercent > memoryThresholdPercent) {
+            LoggerUtils.debug("Memory pressure detected (" + memoryThresholdPercent + "% threshold), running optimization...");
+
+            // Determine pressure level
+            OptimizationEvent.MemoryPressureEvent.PressureLevel level;
+            if (memoryPercent >= 95) {
+                level = OptimizationEvent.MemoryPressureEvent.PressureLevel.CRITICAL;
+            } else if (memoryPercent >= 85) {
+                level = OptimizationEvent.MemoryPressureEvent.PressureLevel.HIGH;
+            } else if (memoryPercent >= 75) {
+                level = OptimizationEvent.MemoryPressureEvent.PressureLevel.MEDIUM;
+            } else {
+                level = OptimizationEvent.MemoryPressureEvent.PressureLevel.LOW;
+            }
+
+            // Fire memory pressure event
+            long usedMb = MemoryUtils.getUsedMemoryMB();
+            long maxMb = MemoryUtils.getMaxMemoryMB();
+            OptimizationEvent.MemoryPressureEvent memoryEvent =
+                new OptimizationEvent.MemoryPressureEvent(memoryPercent, usedMb, maxMb, level);
+            XreatOptimizerAPI.fireEvent(memoryEvent);
+
             offloadIdleChunks();
-            
-            // Suggest garbage collection if safe to do so
-            if (TPSUtils.getTPS() > 18.0) { // Only if TPS is stable
+
+            if (TPSUtils.getTPS() > 18.0) {
                 MemoryUtils.suggestGarbageCollection();
                 LoggerUtils.debug("Suggested garbage collection");
             }
         }
-        
+
         // Clean up expired cache entries
         cleanupExpiredCache();
-        
+
         // Log memory stats
         LoggerUtils.debug("Memory usage: " + MemoryUtils.getMemoryUsagePercentage() + "%, " +
                          "Cache size: " + chunkCache.size() + " entries");
@@ -287,17 +310,13 @@ public class MemorySaver {
         LoggerUtils.info("Cleared chunk cache: " + sizeBefore + " entries removed");
     }
 
-    /**
-     * Set whether compression is enabled
-     */
     public void setCompressionEnabled(boolean enabled) {
+        this.compressionEnabled = enabled;
         LoggerUtils.info("Memory compression " + (enabled ? "enabled" : "disabled"));
     }
 
-    /**
-     * Set the memory threshold percentage
-     */
     public void setThreshold(int threshold) {
-        LoggerUtils.info("Memory threshold set to: " + threshold + "%");
+        this.memoryThresholdPercent = threshold;
+        LoggerUtils.debug("Memory threshold set to: " + threshold + "%");
     }
 }

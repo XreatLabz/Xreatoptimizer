@@ -138,28 +138,24 @@ public class DynamicViewDistance {
     }
     
     /**
-     * Sets the view distance for a world using reflection if needed
+     * Sets the view distance for a world using version-appropriate API.
      */
     private void setWorldViewDistance(World world, int viewDistance) {
         try {
-            // Try using Paper's setViewDistance method if available (for newer versions)
-            // This is a simplified approach - in reality, view distance changes can be complex
-            try {
-                // Check if it's Paper and supports runtime view distance changes
-                Class<?> paperWorld = Class.forName("com.destroystokyo.paper.PaperWorldConfig");
-                // This is a simplified approach since different servers handle view distance differently
-            } catch (ClassNotFoundException e) {
-                // Not Paper, try other approaches
+            // Spigot 1.14+ has World.setViewDistance(int)
+            if (plugin.getVersionAdapter().isVersionAtLeast(1, 14)) {
+                world.getClass().getMethod("setViewDistance", int.class).invoke(world, viewDistance);
+                LoggerUtils.debug("Set view distance for world '" + world.getName() + "' to " + viewDistance);
+                return;
             }
-            
-            // For most servers, changing view distance requires reloading the world or server restart
-            // But we can at least track the intended change and let server configs handle actual changes
-            LoggerUtils.debug("Set view distance for world '" + world.getName() + 
-                             "' to " + viewDistance + " (tracking change for next reload)");
-            
+        } catch (NoSuchMethodException e) {
+            // Method not available on this server implementation
         } catch (Exception e) {
-            LoggerUtils.error("Could not set view distance for world: " + world.getName(), e);
+            LoggerUtils.debug("Could not set view distance via API for world '" + world.getName() + "': " + e.getMessage());
         }
+        
+        // Fallback: track intended change for next reload
+        LoggerUtils.debug("View distance change for '" + world.getName() + "' to " + viewDistance + " tracked (API unavailable)");
     }
     
     /**
@@ -179,17 +175,17 @@ public class DynamicViewDistance {
     }
     
     /**
-     * Attempts to set a player's view distance using available APIs
+     * Attempts to set a player's view distance using Paper API (1.14+).
      */
     private void setPlayerViewDistance(Player player, int distance) throws Exception {
-        // Try to use Paper's setViewDistance method if available
+        if (!plugin.getVersionAdapter().isVersionAtLeast(1, 14)) return;
+        
         try {
             Method setViewDistanceMethod = player.getClass().getMethod("setViewDistance", int.class);
             setViewDistanceMethod.invoke(player, distance);
             playerViewDistances.put(player, distance);
         } catch (NoSuchMethodException e) {
-            // Method not available, server doesn't support per-player view distance
-            // This is normal for many server implementations
+            // Per-player view distance not supported on this server
         }
     }
     

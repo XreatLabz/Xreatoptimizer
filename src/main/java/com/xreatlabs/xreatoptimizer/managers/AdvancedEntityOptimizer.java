@@ -3,14 +3,11 @@ package com.xreatlabs.xreatoptimizer.managers;
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import com.xreatlabs.xreatoptimizer.utils.EntityUtils;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
+import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Item;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -25,7 +22,21 @@ public class AdvancedEntityOptimizer {
     private BukkitTask optimizationTask;
     private final Map<UUID, EntityGroup> entityGroups = new ConcurrentHashMap<>();
     private final Set<UUID> throttledEntities = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, EntityImportance> entityImportanceCache = new ConcurrentHashMap<>();
     private volatile boolean isRunning = false;
+
+    // Entity importance levels for AI throttling
+    private enum EntityImportance {
+        CRITICAL(1.0),    // Boss mobs, named entities, tamed pets
+        HIGH(0.75),       // Hostile mobs, villagers
+        MEDIUM(0.5),      // Passive mobs, farm animals
+        LOW(0.25);        // Ambient mobs, bats
+
+        final double priority;
+        EntityImportance(double priority) {
+            this.priority = priority;
+        }
+    }
     
     // Entity group for managing stacked/fused entities
     private static class EntityGroup {
@@ -98,10 +109,21 @@ public class AdvancedEntityOptimizer {
             optimizationTask.cancel();
         }
         
-        // Clear all entity groups
+        // Re-enable AI on all throttled entities before shutdown
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                if (throttledEntities.contains(entity.getUniqueId()) && entity instanceof LivingEntity) {
+                    try {
+                        ((LivingEntity) entity).setAI(true);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
         entityGroups.clear();
         throttledEntities.clear();
-        
+        entityImportanceCache.clear();
+
         LoggerUtils.info("Advanced entity optimizer stopped.");
     }
     
@@ -259,41 +281,182 @@ public class AdvancedEntityOptimizer {
     }
     
     /**
-     * Applies tick throttling to entities in a specific world
+     * Applies tick throttling to entities in a specific world.
+     * Uses smart AI throttling based on:
+     * - Distance from nearest player
+     * - Entity importance (boss, named, tamed = critical)
+     * - Current server load (TPS)
      */
     private void applyTickThrottlingToWorld(World world) {
         List<Player> players = world.getPlayers();
         if (players.isEmpty()) {
-            // If no players in world, we could apply more aggressive throttling
-            // But for safety, we'll just do standard processing
             return;
         }
-        
-        // For each entity, determine if it should have reduced tick rate
+
+        // Dynamic distance tiers based on TPS
+        double currentTPS = TPSUtils.getTPS();
+        double nearDistance = getDistanceTier("near", currentTPS);
+        double mediumDistance = getDistanceTier("medium", currentTPS);
+        double farDistance = getDistanceTier("far", currentTPS);
+
         for (Entity entity : world.getEntities()) {
-            if (entity instanceof Player) continue; // Don't throttle players
-            
-            // Find the closest player to this entity
-            double closestDistanceSquared = Double.MAX_VALUE;
+            if (entity instanceof Player) continue;
+            if (!(entity instanceof LivingEntity)) continue;
+
+            LivingEntity living = (LivingEntity) entity;
+            UUID entityId = entity.getUniqueId();
+
+            // Classify entity importance
+            EntityImportance importance = getEntityImportance(living);
+
+            // CRITICAL entities never get throttled
+            if (importance == EntityImportance.CRITICAL) {
+                if (throttledEntities.contains(entityId)) {
+                    try {
+                        living.setAI(true);
+                        throttledEntities.remove(entityId);
+                    } catch (Exception ignored) {}
+                }
+                continue;
+            }
+
+            // Find closest player distance
+            double closestDistanceSq = Double.MAX_VALUE;
             for (Player player : players) {
-                double distanceSquared = entity.getLocation().distanceSquared(player.getLocation());
-                if (distanceSquared < closestDistanceSquared) {
-                    closestDistanceSquared = distanceSquared;
+                if (!player.getWorld().equals(entity.getWorld())) continue;
+                double distSq = entity.getLocation().distanceSquared(player.getLocation());
+                if (distSq < closestDistanceSq) {
+                    closestDistanceSq = distSq;
                 }
             }
-            
-            // Apply throttling based on distance
-            boolean shouldThrottle = closestDistanceSquared > 100.0; // More than 10 blocks away
-            
-            if (shouldThrottle && !throttledEntities.contains(entity.getUniqueId())) {
-                // Add to throttling system (in a real implementation, this would modify NMS behavior)
-                throttledEntities.add(entity.getUniqueId());
-                LoggerUtils.debug("Throttled entity: " + entity.getType() + " at " + entity.getLocation());
-            } else if (!shouldThrottle && throttledEntities.contains(entity.getUniqueId())) {
-                // Remove from throttling system
-                throttledEntities.remove(entity.getUniqueId());
+
+            // Determine if entity should be throttled based on distance and importance
+            boolean shouldThrottle = shouldThrottleEntity(closestDistanceSq, importance, nearDistance, mediumDistance, farDistance);
+            boolean isThrottled = throttledEntities.contains(entityId);
+
+            if (shouldThrottle && !isThrottled) {
+                try {
+                    living.setAI(false);
+                    throttledEntities.add(entityId);
+                } catch (Exception e) {
+                    // setAI not available on this version
+                }
+            } else if (!shouldThrottle && isThrottled) {
+                try {
+                    living.setAI(true);
+                    throttledEntities.remove(entityId);
+                } catch (Exception e) {
+                    throttledEntities.remove(entityId);
+                }
             }
         }
+    }
+
+    /**
+     * Determine if entity should be throttled based on distance and importance
+     */
+    private boolean shouldThrottleEntity(double distanceSq, EntityImportance importance,
+                                        double nearDist, double mediumDist, double farDist) {
+        double nearDistSq = nearDist * nearDist;
+        double mediumDistSq = mediumDist * mediumDist;
+        double farDistSq = farDist * farDist;
+
+        switch (importance) {
+            case HIGH:
+                // Hostile mobs: throttle beyond far distance
+                return distanceSq > farDistSq;
+            case MEDIUM:
+                // Passive mobs: throttle beyond medium distance
+                return distanceSq > mediumDistSq;
+            case LOW:
+                // Ambient mobs: throttle beyond near distance
+                return distanceSq > nearDistSq;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Get dynamic distance tier based on current TPS
+     * Lower TPS = more aggressive throttling (shorter distances)
+     */
+    private double getDistanceTier(String tier, double tps) {
+        double multiplier = 1.0;
+
+        // Adjust distances based on TPS
+        if (tps < 15.0) {
+            multiplier = 0.5; // Very aggressive
+        } else if (tps < 17.0) {
+            multiplier = 0.7; // Aggressive
+        } else if (tps < 19.0) {
+            multiplier = 0.85; // Moderate
+        }
+
+        switch (tier) {
+            case "near":
+                return 32.0 * multiplier;  // Base: 32 blocks
+            case "medium":
+                return 64.0 * multiplier;  // Base: 64 blocks
+            case "far":
+                return 96.0 * multiplier;  // Base: 96 blocks
+            default:
+                return 64.0 * multiplier;
+        }
+    }
+
+    /**
+     * Classify entity importance for AI throttling decisions
+     */
+    private EntityImportance getEntityImportance(LivingEntity entity) {
+        UUID entityId = entity.getUniqueId();
+
+        // Check cache first
+        if (entityImportanceCache.containsKey(entityId)) {
+            return entityImportanceCache.get(entityId);
+        }
+
+        EntityImportance importance = classifyEntityImportance(entity);
+        entityImportanceCache.put(entityId, importance);
+        return importance;
+    }
+
+    /**
+     * Classify entity importance based on type and properties
+     */
+    private EntityImportance classifyEntityImportance(LivingEntity entity) {
+        // CRITICAL: Named entities, tamed pets, boss mobs
+        if (entity.getCustomName() != null) {
+            return EntityImportance.CRITICAL;
+        }
+
+        if (entity instanceof Tameable && ((Tameable) entity).isTamed()) {
+            return EntityImportance.CRITICAL;
+        }
+
+        EntityType type = entity.getType();
+
+        // Boss mobs
+        if (type == EntityType.ENDER_DRAGON || type == EntityType.WITHER) {
+            return EntityImportance.CRITICAL;
+        }
+
+        // HIGH: Hostile mobs, villagers
+        if (entity instanceof Monster || type == EntityType.VILLAGER) {
+            return EntityImportance.HIGH;
+        }
+
+        // MEDIUM: Passive mobs, farm animals
+        if (entity instanceof Animals) {
+            return EntityImportance.MEDIUM;
+        }
+
+        // LOW: Ambient mobs
+        if (entity instanceof Ambient || type == EntityType.BAT) {
+            return EntityImportance.LOW;
+        }
+
+        // Default to MEDIUM
+        return EntityImportance.MEDIUM;
     }
     
     /**
