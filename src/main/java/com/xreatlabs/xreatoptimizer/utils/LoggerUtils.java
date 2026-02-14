@@ -36,7 +36,7 @@ public class LoggerUtils {
     
     private static boolean isQuietMode() {
         try {
-            return plugin.getConfig().getBoolean("quiet_mode", false);
+            return plugin.getConfig().getBoolean("general.quiet_mode", false);
         } catch (Exception e) {
             return false;
         }
