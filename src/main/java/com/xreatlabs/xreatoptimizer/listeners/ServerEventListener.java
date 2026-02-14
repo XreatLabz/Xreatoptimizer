@@ -2,6 +2,7 @@ package com.xreatlabs.xreatoptimizer.listeners;
 
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import com.xreatlabs.xreatoptimizer.managers.EmptyServerOptimizer;
+import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -59,7 +60,7 @@ public class ServerEventListener implements Listener {
         // Server fully loaded - start optimization systems
         if (event.getType() == ServerLoadEvent.LoadType.STARTUP) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                plugin.getLogger().info("Server fully loaded - optimization systems active");
+                LoggerUtils.startup("Server fully loaded - optimization systems active");
 
                 // Check if server started empty
                 if (Bukkit.getOnlinePlayers().isEmpty() && emptyServerOptimizer != null) {
