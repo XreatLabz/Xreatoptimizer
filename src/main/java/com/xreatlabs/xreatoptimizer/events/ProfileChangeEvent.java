@@ -3,9 +3,7 @@ package com.xreatlabs.xreatoptimizer.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/**
- * Event fired when optimization profile changes
- */
+/** Profile change event */
 public class ProfileChangeEvent extends Event {
     private static final HandlerList handlers = new HandlerList();
     private final String oldProfile;

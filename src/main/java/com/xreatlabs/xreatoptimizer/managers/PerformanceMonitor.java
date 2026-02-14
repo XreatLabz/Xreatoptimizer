@@ -17,15 +17,11 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-/**
- * Monitors server performance metrics with proper historical tracking.
- */
 public class PerformanceMonitor {
     private final XreatOptimizer plugin;
     private BukkitTask monitorTask;
     private final Map<String, Object> metrics = new ConcurrentHashMap<>();
     
-    // Rolling window historical data (last 1 hour = 720 samples at 5-second intervals)
     private static final int MAX_HISTORY = 720;
     private final ConcurrentLinkedDeque<Double> tpsHistory = new ConcurrentLinkedDeque<>();
     private final ConcurrentLinkedDeque<Double> memoryHistory = new ConcurrentLinkedDeque<>();

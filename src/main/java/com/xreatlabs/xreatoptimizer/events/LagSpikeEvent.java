@@ -3,9 +3,7 @@ package com.xreatlabs.xreatoptimizer.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/**
- * Event fired when a lag spike is detected
- */
+/** Lag spike event */
 public class LagSpikeEvent extends Event {
     private static final HandlerList handlers = new HandlerList();
     private final double currentTPS;

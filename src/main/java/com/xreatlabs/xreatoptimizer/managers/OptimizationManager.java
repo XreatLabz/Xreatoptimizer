@@ -1,7 +1,7 @@
 package com.xreatlabs.xreatoptimizer.managers;
 
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
-import com.xreatlabs.xreatoptimizer.ai.AutoTuningEngine;
+import com.xreatlabs.xreatoptimizer.core.AdaptiveThresholdManager;
 import com.xreatlabs.xreatoptimizer.api.OptimizationEvent;
 import com.xreatlabs.xreatoptimizer.api.XreatOptimizerAPI;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
@@ -9,10 +9,6 @@ import com.xreatlabs.xreatoptimizer.utils.MemoryUtils;
 import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
 import org.bukkit.scheduler.BukkitTask;
 
-/**
- * Central brain for optimization system.
- * Drives all subsystems based on the active optimization profile.
- */
 public class OptimizationManager {
     private final XreatOptimizer plugin;
     private BukkitTask optimizationTask;
@@ -28,7 +24,6 @@ public class OptimizationManager {
         EMERGENCY
     }
     
-    // Profile parameter sets
     private int activeHibernateRadius = 64;
     private int activeEntityPassiveLimit = 200;
     private int activeEntityHostileLimit = 150;
@@ -68,12 +63,10 @@ public class OptimizationManager {
         double currentTPS = TPSUtils.getTPS();
         double memoryUsage = MemoryUtils.getMemoryUsagePercentage();
 
-        // Fire before optimization event
         OptimizationEvent.BeforeOptimizationEvent beforeEvent =
             new OptimizationEvent.BeforeOptimizationEvent(effectiveProfile.name(), currentTPS, memoryUsage);
         XreatOptimizerAPI.fireEvent(beforeEvent);
 
-        // If event was cancelled, skip this cycle
         if (beforeEvent.isCancelled()) {
             return;
         }
@@ -89,7 +82,6 @@ public class OptimizationManager {
         applyProfileParameters();
         propagateToSubsystems();
 
-        // Fire profile change event if profile changed
         if (previousEffective != effectiveProfile) {
             OptimizationEvent.ProfileChangeEvent profileEvent =
                 new OptimizationEvent.ProfileChangeEvent(
@@ -99,7 +91,6 @@ public class OptimizationManager {
                 );
             XreatOptimizerAPI.fireEvent(profileEvent);
 
-            // If profile change was cancelled, revert
             if (profileEvent.isCancelled()) {
                 effectiveProfile = previousEffective;
                 applyProfileParameters();
@@ -113,7 +104,6 @@ public class OptimizationManager {
             }
         }
 
-        // Fire after optimization event
         long executionTime = System.currentTimeMillis() - startTime;
         OptimizationEvent.AfterOptimizationEvent afterEvent =
             new OptimizationEvent.AfterOptimizationEvent(effectiveProfile.name(), executionTime, true);
@@ -139,7 +129,6 @@ public class OptimizationManager {
             newProfile = OptimizationProfile.EMERGENCY;
         }
         
-        // Memory pressure can escalate the profile
         if (memoryUsage > plugin.getConfig().getInt("memory_reclaim_threshold_percent", 80)) {
             if (newProfile == OptimizationProfile.LIGHT) {
                 newProfile = OptimizationProfile.NORMAL;
@@ -151,11 +140,9 @@ public class OptimizationManager {
         effectiveProfile = newProfile;
     }
     
-    /**
-     * Gets TPS threshold, preferring AutoTuningEngine adjusted values when available.
-     */
+    /** Get TPS threshold */
     private double getThreshold(String level, double defaultValue) {
-        AutoTuningEngine engine = plugin.getAutoTuningEngine();
+        AdaptiveThresholdManager engine = plugin.getAdaptiveThresholdManager();
         if (engine != null && engine.isRunning()) {
             switch (level) {
                 case "light": return engine.getAdjustedLightThreshold();
@@ -166,11 +153,9 @@ public class OptimizationManager {
         return plugin.getConfig().getDouble("optimization.tps_thresholds." + level, defaultValue);
     }
     
-    /**
-     * Gets entity limit, preferring AutoTuningEngine adjusted values when available.
-     */
+    /** Get entity limit */
     private int getEntityLimit(String type, int defaultValue) {
-        AutoTuningEngine engine = plugin.getAutoTuningEngine();
+        AdaptiveThresholdManager engine = plugin.getAdaptiveThresholdManager();
         if (engine != null && engine.isRunning()) {
             switch (type) {
                 case "passive": return engine.getAdjustedPassiveLimit();
@@ -181,9 +166,6 @@ public class OptimizationManager {
         return plugin.getConfig().getInt("optimization.entity_limits." + type, defaultValue);
     }
     
-    /**
-     * Sets concrete parameter values based on the effective profile.
-     */
     private void applyProfileParameters() {
         int basePassive = getEntityLimit("passive", 200);
         int baseHostile = getEntityLimit("hostile", 150);
@@ -226,39 +208,32 @@ public class OptimizationManager {
                 break;
         }
         
-        // Enforce safe minimums
         activeEntityPassiveLimit = Math.max(100, activeEntityPassiveLimit);
         activeEntityHostileLimit = Math.max(75, activeEntityHostileLimit);
         activeEntityItemLimit = Math.max(250, activeEntityItemLimit);
     }
     
-    /**
-     * Pushes active parameters to all subsystems.
-     */
     private void propagateToSubsystems() {
-        // Hibernate radius
         if (plugin.getHibernateManager() != null && plugin.getHibernateManager().isRunning()) {
             plugin.getHibernateManager().setRadius(activeHibernateRadius);
         }
         
-        // Memory threshold
         if (plugin.getMemorySaver() != null) {
             plugin.getMemorySaver().setThreshold(activeMemoryThreshold);
         }
         
-        // Entity optimizer enabled state based on profile
-        if (plugin.getAdvancedEntityOptimizer() != null) {
+        if (plugin.getAdvancedEntityOptimizer() != null && !plugin.getAdvancedEntityOptimizer().isEnabled()) {
             plugin.getAdvancedEntityOptimizer().setEnabled(true);
         }
         
-        // Entity culling - more aggressive at higher profiles
         if (plugin.getEntityCullingManager() != null) {
-            plugin.getEntityCullingManager().setEnabled(
-                effectiveProfile == OptimizationProfile.AGGRESSIVE ||
-                effectiveProfile == OptimizationProfile.EMERGENCY);
+            boolean shouldEnable = effectiveProfile == OptimizationProfile.AGGRESSIVE ||
+                effectiveProfile == OptimizationProfile.EMERGENCY;
+            if (plugin.getEntityCullingManager().isEnabled() != shouldEnable) {
+                plugin.getEntityCullingManager().setEnabled(shouldEnable);
+            }
         }
         
-        // Dynamic view distance - force lower under heavy profiles
         if (plugin.getDynamicViewDistance() != null && plugin.getDynamicViewDistance().isRunning()) {
             if (effectiveProfile == OptimizationProfile.EMERGENCY) {
                 for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
@@ -275,17 +250,14 @@ public class OptimizationManager {
             }
         }
         
-        // CPU/RAM optimizer intensity
         if (plugin.getAdvancedCPURAMOptimizer() != null) {
             plugin.getAdvancedCPURAMOptimizer().setIntensity(effectiveProfile);
         }
         
-        // Emergency-specific actions
         if (effectiveProfile == OptimizationProfile.EMERGENCY) {
             if (TPSUtils.isTPSDangerous()) {
                 LoggerUtils.warn("TPS is in dangerous territory (< 10). Consider reducing load.");
             }
-            // Suggest GC under emergency
             MemoryUtils.suggestGarbageCollection();
         }
         

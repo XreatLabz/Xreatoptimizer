@@ -10,10 +10,7 @@ import org.bukkit.Bukkit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Central registry for all XreatOptimizer metrics
- * Collects and manages metrics for Prometheus export
- */
+/** Central metrics registry */
 public class MetricsRegistry {
 
     private final XreatOptimizer plugin;
@@ -51,9 +48,6 @@ public class MetricsRegistry {
         LoggerUtils.info("Metrics registry initialized");
     }
 
-    /**
-     * Initialize all metrics
-     */
     private void initializeMetrics() {
         // TPS Gauges
         Gauge.builder("xreat_tps_current", currentTps, AtomicInteger::get)
@@ -153,119 +147,71 @@ public class MetricsRegistry {
             .register(registry);
     }
 
-    /**
-     * Update TPS metrics
-     */
     public void updateTps(double tps) {
         currentTps.set((int) (tps * 100)); // Store as integer (20.00 = 2000)
         minTps.set((int) Math.min(minTps.get(), tps * 100));
         maxTps.set((int) Math.max(maxTps.get(), tps * 100));
     }
 
-    /**
-     * Update memory metrics
-     */
     public void updateMemory(long usedMb, long maxMb, double percentage) {
         usedMemoryMb.set(usedMb);
         maxMemoryMb.set(maxMb);
         memoryPercentage.set((int) percentage);
     }
 
-    /**
-     * Update entity count
-     */
     public void updateEntityCount(int count) {
         entityCount.set(count);
     }
 
-    /**
-     * Update chunk count
-     */
     public void updateChunkCount(int count) {
         chunkCount.set(count);
     }
 
-    /**
-     * Update player count
-     */
     public void updatePlayerCount(int count) {
         playerCount.set(count);
     }
 
-    /**
-     * Update thread pool metrics
-     */
     public void updateThreadPool(int active, int queued) {
         threadPoolActive.set(active);
         threadPoolQueued.set(queued);
     }
 
-    /**
-     * Record a lag spike
-     */
     public void recordLagSpike() {
         lagSpikeCounter.increment();
     }
 
-    /**
-     * Record a profile change
-     */
     public void recordProfileChange() {
         profileChangeCounter.increment();
     }
 
-    /**
-     * Record chunk load
-     */
     public void recordChunkLoad() {
         chunkLoadCounter.increment();
     }
 
-    /**
-     * Record chunk unload
-     */
     public void recordChunkUnload() {
         chunkUnloadCounter.increment();
     }
 
-    /**
-     * Record GC run
-     */
     public void recordGC() {
         gcCounter.increment();
     }
 
-    /**
-     * Record optimization run
-     */
     public void recordOptimization() {
         optimizationRunCounter.increment();
     }
 
-    /**
-     * Time an optimization operation
-     */
     public Timer.Sample startOptimizationTimer() {
         return Timer.start(registry);
     }
 
-    /**
-     * Stop optimization timer
-     */
     public void stopOptimizationTimer(Timer.Sample sample) {
         sample.stop(optimizationTimer);
     }
 
-    /**
-     * Get the Prometheus registry
-     */
     public PrometheusMeterRegistry getRegistry() {
         return registry;
     }
 
-    /**
-     * Get metrics in Prometheus format
-     */
     public String scrape() {
         return registry.scrape();
     }

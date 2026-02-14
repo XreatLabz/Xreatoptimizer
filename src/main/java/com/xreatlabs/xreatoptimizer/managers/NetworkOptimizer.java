@@ -10,9 +10,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Manages network optimizations like packet batching and frequency throttling
- */
 public class NetworkOptimizer {
     private final XreatOptimizer plugin;
     private BukkitTask optimizationTask;
@@ -33,9 +30,6 @@ public class NetworkOptimizer {
         this.plugin = plugin;
     }
     
-    /**
-     * Starts the network optimization system
-     */
     public void start() {
         // Network optimizations run every 5 seconds
         optimizationTask = Bukkit.getScheduler().runTaskTimer(
@@ -49,9 +43,6 @@ public class NetworkOptimizer {
         LoggerUtils.info("Network optimizer started.");
     }
     
-    /**
-     * Stops the network optimization system
-     */
     public void stop() {
         isRunning = false;
         if (optimizationTask != null) {
@@ -62,25 +53,17 @@ public class NetworkOptimizer {
         LoggerUtils.info("Network optimizer stopped.");
     }
     
-    /**
-     * Enable or disable network optimization
-     */
     public void setEnabled(boolean enabled) {
-        isRunning = enabled;
-        LoggerUtils.info("Network optimizer " + (enabled ? "enabled" : "disabled"));
+        if (isRunning != enabled) {
+            isRunning = enabled;
+            LoggerUtils.info("Network optimizer " + (enabled ? "enabled" : "disabled"));
+        }
     }
     
-    /**
-     * Check if network optimization is enabled
-     */
     public boolean isEnabled() {
         return isRunning;
     }
     
-    /**
-     * Runs network optimization cycle.
-     * Tracks per-player stats and adjusts entity tracking ranges based on TPS.
-     */
     private void runNetworkOptimizations() {
         if (!isRunning) return;
         
@@ -115,9 +98,6 @@ public class NetworkOptimizer {
         }
     }
     
-    /**
-     * Throttles tab list updates for a player based on current server performance
-     */
     public boolean shouldThrottleTabUpdate(Player player) {
         if (!plugin.getVersionAdapter().isVersionAtLeast(1, 7)) {
             return true; // Don't apply network optimizations to very old versions
@@ -136,9 +116,6 @@ public class NetworkOptimizer {
         return !shouldUpdate;
     }
     
-    /**
-     * Throttles scoreboard updates for a player based on current server performance
-     */
     public boolean shouldThrottleScoreboardUpdate(Player player) {
         if (!plugin.getVersionAdapter().isVersionAtLeast(1, 7)) {
             return true; // Don't apply network optimizations to very old versions
@@ -157,9 +134,6 @@ public class NetworkOptimizer {
         return !shouldUpdate;
     }
     
-    /**
-     * Gets optimal update interval based on server performance
-     */
     private long getOptimalUpdateInterval() {
         double tps = com.xreatlabs.xreatoptimizer.utils.TPSUtils.getTPS();
         
@@ -174,9 +148,6 @@ public class NetworkOptimizer {
         }
     }
     
-    /**
-     * Records a packet for statistics
-     */
     public void recordPacket(Player player, boolean wasCompressed) {
         PlayerNetworkStats stats = playerStats.computeIfAbsent(player, k -> new PlayerNetworkStats());
         stats.packetCount++;
@@ -190,16 +161,10 @@ public class NetworkOptimizer {
         }
     }
     
-    /**
-     * Checks if the network optimizer is running
-     */
     public boolean isRunning() {
         return isRunning;
     }
     
-    /**
-     * Gets statistics for a player
-     */
     public PlayerNetworkStats getPlayerStats(Player player) {
         return playerStats.get(player);
     }

@@ -11,10 +11,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-/**
- * Persistent storage for performance statistics
- * Saves historical data to disk for trend analysis across restarts
- */
+/** Persistent statistics storage */
 public class StatisticsStorage {
 
     private final XreatOptimizer plugin;
@@ -31,9 +28,6 @@ public class StatisticsStorage {
         loadStatistics();
     }
 
-    /**
-     * Load statistics from disk
-     */
     public void loadStatistics() {
         if (!statsFile.exists()) {
             try {
@@ -63,9 +57,6 @@ public class StatisticsStorage {
         plugin.getLogger().info("Loaded " + recentSnapshots.size() + " performance snapshots from disk");
     }
 
-    /**
-     * Save statistics to disk
-     */
     public void saveStatistics() {
         if (statsConfig == null) {
             return;
@@ -87,9 +78,6 @@ public class StatisticsStorage {
         }
     }
 
-    /**
-     * Record a new performance snapshot
-     */
     public void recordSnapshot(double tps, double memoryPercent, int entityCount, int chunkCount, String profile) {
         PerformanceSnapshot snapshot = new PerformanceSnapshot(
             System.currentTimeMillis(),
@@ -108,9 +96,6 @@ public class StatisticsStorage {
         }
     }
 
-    /**
-     * Get snapshots from the last N hours
-     */
     public List<PerformanceSnapshot> getSnapshotsFromLastHours(int hours) {
         long cutoffTime = System.currentTimeMillis() - (hours * 3600000L);
         List<PerformanceSnapshot> result = new ArrayList<>();
@@ -124,9 +109,6 @@ public class StatisticsStorage {
         return result;
     }
 
-    /**
-     * Get average TPS over last N hours
-     */
     public double getAverageTPS(int hours) {
         List<PerformanceSnapshot> snapshots = getSnapshotsFromLastHours(hours);
         if (snapshots.isEmpty()) {
@@ -139,9 +121,6 @@ public class StatisticsStorage {
             .orElse(20.0);
     }
 
-    /**
-     * Get peak memory usage over last N hours
-     */
     public double getPeakMemory(int hours) {
         List<PerformanceSnapshot> snapshots = getSnapshotsFromLastHours(hours);
         if (snapshots.isEmpty()) {
@@ -154,9 +133,6 @@ public class StatisticsStorage {
             .orElse(0.0);
     }
 
-    /**
-     * Get minimum TPS over last N hours
-     */
     public double getMinTPS(int hours) {
         List<PerformanceSnapshot> snapshots = getSnapshotsFromLastHours(hours);
         if (snapshots.isEmpty()) {
@@ -169,9 +145,6 @@ public class StatisticsStorage {
             .orElse(20.0);
     }
 
-    /**
-     * Generate performance report
-     */
     public String generateReport(int hours) {
         List<PerformanceSnapshot> snapshots = getSnapshotsFromLastHours(hours);
 
@@ -209,18 +182,12 @@ public class StatisticsStorage {
         return report.toString();
     }
 
-    /**
-     * Clear old snapshots (older than specified days)
-     */
     public void clearOldSnapshots(int days) {
         long cutoffTime = System.currentTimeMillis() - (days * 86400000L);
         recentSnapshots.removeIf(snapshot -> snapshot.getTimestamp() < cutoffTime);
         plugin.getLogger().info("Cleared snapshots older than " + days + " days");
     }
 
-    /**
-     * Performance snapshot data class
-     */
     public static class PerformanceSnapshot {
         private final long timestamp;
         private final double tps;

@@ -3,9 +3,7 @@ package com.xreatlabs.xreatoptimizer.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/**
- * Event fired when memory pressure is detected
- */
+/** Memory pressure event */
 public class MemoryPressureEvent extends Event {
     private static final HandlerList handlers = new HandlerList();
     private final double memoryPercent;

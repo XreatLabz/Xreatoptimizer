@@ -10,15 +10,7 @@ import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 
-/**
- * Listener for entity-related events
- * Manages entity limits and stack fusion opportunities
- * 
- * IMPORTANT: This listener is designed to NEVER interfere with normal player gameplay.
- * All player-placed entities, projectiles, and important gameplay entities are exempt.
- * 
- * Compatible with Minecraft 1.8 - 1.21.10
- */
+/** Entity spawn event handler */
 public class EntityEventListener implements Listener {
 
     private final XreatOptimizer plugin;
@@ -29,14 +21,12 @@ public class EntityEventListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntitySpawn(EntitySpawnEvent event) {
-        // Track entity spawns for performance monitoring only
         if (plugin.getPerformanceMonitor() != null) {
             plugin.getPerformanceMonitor().incrementEntityCount();
         }
 
-        // Check if entity spawn limiting is enabled at all
         if (!plugin.getConfig().getBoolean("entity_limiter.enabled", false)) {
-            return; // Disabled by default - don't interfere with gameplay
+            return;
         }
 
         EntityType type = event.getEntityType();
@@ -131,10 +121,6 @@ public class EntityEventListener implements Listener {
         }
     }
 
-    /**
-     * Checks if a spawn reason is player-triggered and should never be blocked.
-     * Uses version-safe string comparison for compatibility.
-     */
     private boolean isPlayerTriggeredSpawn(CreatureSpawnEvent.SpawnReason reason) {
         if (reason == null) return false;
         

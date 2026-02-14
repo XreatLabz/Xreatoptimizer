@@ -12,19 +12,14 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
-import java.util.concurrent.CompletableFuture;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * Advanced CPU and RAM optimization manager that can achieve 70%+ reductions
- */
 public class AdvancedCPURAMOptimizer {
     private final XreatOptimizer plugin;
     private BukkitTask optimizationTask;
     private volatile boolean isRunning = false;
-    private long previousCollectionTime = System.currentTimeMillis();
-    private long previousCollectionCount = 0;
     
-    // Performance metrics
     private double peakCPUUsage = 0.0;
     private long peakRAMUsage = 0L;
     private boolean highUsageDetected = false;
@@ -34,25 +29,18 @@ public class AdvancedCPURAMOptimizer {
         this.plugin = plugin;
     }
     
-    /**
-     * Starts the advanced CPU/RAM optimization system
-     */
     public void start() {
-        // Run optimizations every 2 seconds to monitor and adjust
         optimizationTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
             plugin,
             this::runAdvancedOptimizations,
-            40L,  // Initial delay (2 seconds)
-            40L   // Repeat interval (2 seconds)
+            40L,
+            40L
         );
         
         isRunning = true;
         LoggerUtils.info("Advanced CPU/RAM optimizer started.");
     }
     
-    /**
-     * Stops the advanced CPU/RAM optimization system
-     */
     public void stop() {
         isRunning = false;
         if (optimizationTask != null) {
@@ -61,9 +49,6 @@ public class AdvancedCPURAMOptimizer {
         LoggerUtils.info("Advanced CPU/RAM optimizer stopped.");
     }
     
-    /**
-     * Runs advanced CPU and RAM optimizations
-     */
     private void runAdvancedOptimizations() {
         if (!isRunning) return;
         
@@ -71,11 +56,9 @@ public class AdvancedCPURAMOptimizer {
         long ramUsage = MemoryUtils.getUsedMemoryMB();
         double memoryPercentage = MemoryUtils.getMemoryUsagePercentage();
         
-        // Update peak tracking
         if (cpuUsage > peakCPUUsage) peakCPUUsage = cpuUsage;
         if (ramUsage > peakRAMUsage) peakRAMUsage = ramUsage;
         
-        // Adjust thresholds based on current intensity from OptimizationManager
         double cpuHighThreshold = 150;
         double cpuEmergencyThreshold = 200;
         double memHighThreshold = 70;
@@ -88,143 +71,78 @@ public class AdvancedCPURAMOptimizer {
             memHighThreshold = 50; memEmergencyThreshold = 60;
         }
         
-        // Check if we need aggressive optimizations
         if (cpuUsage > cpuHighThreshold || memoryPercentage > memHighThreshold) {
             highUsageDetected = true;
             LoggerUtils.debug("High usage detected: CPU=" + cpuUsage + "%, RAM=" + memoryPercentage + "%");
             
             if (cpuUsage > cpuEmergencyThreshold || memoryPercentage > memEmergencyThreshold) {
-                // Very high usage - apply emergency optimizations
                 applyEmergencyOptimizations(cpuUsage, memoryPercentage);
             } else {
-                // Apply standard aggressive optimizations
                 applyAggressiveOptimizations(cpuUsage, memoryPercentage);
             }
         } else if (highUsageDetected && cpuUsage < 50 && memoryPercentage < 60) {
-            // System has recovered - gradually reduce optimization intensity
             highUsageDetected = false;
             applyRecoveryOptimizations();
         }
         
-        // Log current usage periodically
-        if (System.currentTimeMillis() % 60000 < 2000) { // Every minute
+        if (System.currentTimeMillis() % 60000 < 2000) {
             LoggerUtils.info("Process CPU: " + String.format("%.1f", cpuUsage) + "%, Heap: " +
                            String.format("%.1f", memoryPercentage) + "% (" + ramUsage + "MB used, " +
                            MemoryUtils.getMaxMemoryMB() + "MB max)");
         }
     }
     
-    /**
-     * Applies emergency optimizations when CPU/RAM usage is extremely high
-     */
     private void applyEmergencyOptimizations(double cpuUsage, double memoryPercentage) {
         LoggerUtils.warn("EMERGENCY OPTIMIZATIONS ACTIVE - CPU: " + cpuUsage + "%, RAM: " + memoryPercentage + "%");
         
-        // Aggressive entity removal
         int removedEntities = removeExcessEntitiesAggressively();
-        
-        // Maximize hibernation
         maximizeHibernateSettings();
-        
-        // Reduce active worlds/regions if possible
         reduceWorldActivity();
-        
-        // Force memory cleanup
         forceMemoryOptimizations();
         
         LoggerUtils.info("Emergency optimizations applied: Removed " + removedEntities + " entities");
     }
     
-    /**
-     * Applies aggressive optimizations for high CPU/RAM usage
-     */
     private void applyAggressiveOptimizations(double cpuUsage, double memoryPercentage) {
         LoggerUtils.debug("AGGRESSIVE OPTIMIZATIONS - CPU: " + cpuUsage + "%, RAM: " + memoryPercentage + "%");
         
-        // Remove excess entities
         removeExcessEntities();
-        
-        // Increase hibernation radius
         increaseHibernateRadius();
-        
-        // Optimize chunk loading
         optimizeChunkLoading();
-        
-        // Reduce entity processing
         throttleEntityProcessing();
     }
     
-    /**
-     * Applies recovery optimizations when system recovers
-     */
     private void applyRecoveryOptimizations() {
         LoggerUtils.info("System recovery detected, reducing optimization intensity");
-        
-        // Gradually restore normal operation
         restoreNormalHibernateSettings();
         restoreNormalEntityProcessing();
     }
     
-    /**
-     * Removes excess entities aggressively
-     * 
-     * IMPORTANT: This method has been modified to NEVER remove:
-     * - Passive mobs (pigs, cows, sheep, etc.) - players may have farms
-     * - Dropped items - players earned these
-     * - Experience orbs - players earned these
-     * 
-     * Only stuck arrows are removed in emergency situations.
-     */
+    /** Remove excess entities (arrows only - passive mobs/items protected) */
     private int removeExcessEntitiesAggressively() {
         int removedTotal = 0;
         
-        // REMOVED: We no longer remove dropped items, XP, or passive mobs
-        // These removals were breaking player farms and causing item loss
-        
-        // Only remove stuck arrows in extreme emergencies (very high threshold)
         for (World world : Bukkit.getWorlds()) {
-            // Only remove arrows if there are a LOT of them (500+)
             removedTotal += removeEntitiesByType(world, EntityType.ARROW, 500);
             removedTotal += removeEntitiesByType(world, EntityType.SPECTRAL_ARROW, 500);
         }
         
-        // NOTE: The following was removed because it breaks gameplay:
-        // - Dropped items (players need to pick these up)
-        // - Experience orbs (players earned these)
-        // - Passive mobs (pigs, cows, sheep - player farms!)
-        
         return removedTotal;
     }
     
-    /**
-     * Removes excess entities based on normal thresholds
-     * 
-     * IMPORTANT: This method has been modified to NEVER remove gameplay entities.
-     * Only stuck arrows are cleaned up.
-     */
+    /** Remove excess entities (arrows only) */
     private int removeExcessEntities() {
         int removedTotal = 0;
         
-        // REMOVED: All passive mob and item removal
-        // This was breaking player farms and causing frustration
-        
-        // Only clean up stuck arrows (very conservative)
         for (World world : Bukkit.getWorlds()) {
             removedTotal += removeEntitiesByType(world, EntityType.ARROW, 500);
         }
         
-        // NOTE: We no longer remove:
-        // - DROPPED_ITEM - players need to pick these up
-        // - PIG, COW, SHEEP - player farms!
-        
         return removedTotal;
     }
     
-    /**
-     * Removes entities of a specific type, keeping only up to the limit
-     */
     private int removeEntitiesByType(World world, EntityType type, int limit) {
-        java.util.List<Entity> entities = new java.util.ArrayList<>();
+        List<Entity> entities = new ArrayList<>();
         for (Entity entity : world.getEntities()) {
             if (entity.getType() == type) {
                 entities.add(entity);
@@ -232,7 +150,7 @@ public class AdvancedCPURAMOptimizer {
         }
         
         if (entities.size() <= limit) {
-            return 0; // No removal needed
+            return 0;
         }
         
         int toRemove = entities.size() - limit;
@@ -241,7 +159,6 @@ public class AdvancedCPURAMOptimizer {
         for (Entity entity : entities) {
             if (removed >= toRemove) break;
             
-            // Don't remove named entities or entities with riders/passengers
             if (entity.getCustomName() != null || !entity.getPassengers().isEmpty()) {
                 continue;
             }
@@ -280,7 +197,6 @@ public class AdvancedCPURAMOptimizer {
         if (ms != null) {
             ms.clearCache();
         }
-        // Unload distant chunks across all worlds
         Bukkit.getScheduler().runTask(plugin, () -> {
             for (World world : Bukkit.getWorlds()) {
                 for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
@@ -323,31 +239,22 @@ public class AdvancedCPURAMOptimizer {
         });
     }
     
-    /**
-     * Forces aggressive memory optimizations
-     */
     private void forceMemoryOptimizations() {
-        // Clear caches more aggressively
         MemorySaver memorySaver = plugin.getMemorySaver();
         if (memorySaver != null) {
             memorySaver.clearCache();
         }
         
-        // Suggest garbage collection if safe
         if (TPSUtils.getTPS() > 15.0) {
-            System.gc(); // Suggest garbage collection
+            System.gc();
             LoggerUtils.debug("Suggested garbage collection");
         }
     }
     
-    /**
-     * Gets the current system CPU usage
-     */
     private double getSystemCPUUsage() {
         try {
             OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
             
-            // Try to get the process CPU load - this might return -1 if not available
             if (osBean instanceof com.sun.management.OperatingSystemMXBean) {
                 com.sun.management.OperatingSystemMXBean sunOsBean = 
                     (com.sun.management.OperatingSystemMXBean) osBean;
@@ -357,41 +264,25 @@ public class AdvancedCPURAMOptimizer {
                 }
             }
         } catch (Exception e) {
-            // If we can't get CPU usage from extended methods, use alternative
             LoggerUtils.debug("Could not get detailed CPU usage: " + e.getMessage());
         }
         
-        // Fallback - calculate based on performance metrics
         return getEstimatedCPUUsage();
     }
     
-    /**
-     * Gets an estimated CPU usage when detailed metrics aren't available
-     */
     private double getEstimatedCPUUsage() {
-        // This is a very simplified estimation
-        // In reality, you'd need to track multiple data points over time
         double tps = TPSUtils.getTPS();
-        return Math.max(0, (20.0 - tps) * 10); // Rough estimation
+        return Math.max(0, (20.0 - tps) * 10);
     }
     
-    /**
-     * Checks if the advanced optimizer is running
-     */
     public boolean isRunning() {
         return isRunning;
     }
     
-    /**
-     * Gets the peak CPU usage recorded
-     */
     public double getPeakCPUUsage() {
         return peakCPUUsage;
     }
     
-    /**
-     * Gets the peak RAM usage recorded
-     */
     public long getPeakRAMUsage() {
         return peakRAMUsage;
     }

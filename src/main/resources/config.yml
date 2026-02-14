@@ -1,10 +1,10 @@
 # XreatOptimizer Configuration
-# Do not modify branding settings - these are hardcoded
 
 general:
   auto_mode: true
   initial_profile: AUTO
-  broadcast_interval_minutes: 30
+  # Silent mode - plugin runs without console spam (only errors shown)
+  quiet_mode: true
 
 optimization:
   tps_thresholds:
@@ -181,7 +181,7 @@ metrics:
     bind_address: "127.0.0.1"
 
 # ============================================================================
-# PREDICTIVE OPTIMIZATION - AI-powered lag prevention
+# PREDICTIVE OPTIMIZATION - Proactive lag prevention
 # ============================================================================
 # Uses time-series forecasting to predict performance issues 30-60 seconds ahead
 # Automatically switches optimization profiles before lag spikes occur

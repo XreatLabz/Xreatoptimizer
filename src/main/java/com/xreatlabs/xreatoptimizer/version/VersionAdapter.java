@@ -3,9 +3,7 @@ package com.xreatlabs.xreatoptimizer.version;
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import org.bukkit.Bukkit;
 
-/**
- * Version adapter for cross-version compatibility (1.8 to 1.21.10)
- */
+/** Version compatibility adapter */
 public class VersionAdapter {
     private final XreatOptimizer plugin;
     private final String serverVersion;
@@ -17,28 +15,14 @@ public class VersionAdapter {
         this.versionProtocol = parseVersionProtocol(serverVersion);
     }
 
-    /**
-     * Gets the server version string
-     * @return Server version as string (e.g. "1.20.4")
-     */
     public String getServerVersion() {
         return serverVersion;
     }
 
-    /**
-     * Gets the protocol version number
-     * @return Protocol version as integer (e.g. 765 for 1.20.4)
-     */
     public int getVersionProtocol() {
         return versionProtocol;
     }
 
-    /**
-     * Checks if the server version is at least the specified version
-     * @param major Major version number
-     * @param minor Minor version number
-     * @return True if server version is >= specified version
-     */
     public boolean isVersionAtLeast(int major, int minor) {
         String[] parts = serverVersion.split("\\.");
         if (parts.length < 2) return false;
@@ -56,10 +40,6 @@ public class VersionAdapter {
         }
     }
 
-    /**
-     * Gets the appropriate adapter based on server version
-     * @return Version-specific adapter
-     */
     public VersionSpecificAdapter getVersionSpecificAdapter() {
         if (isVersionAtLeast(1, 21)) {
             return new Version_1_21_X(this);
@@ -83,8 +63,7 @@ public class VersionAdapter {
     }
 
     private int parseVersionProtocol(String version) {
-        // This is a simplified protocol version mapping
-        // In a real implementation, you'd have a complete mapping
+        // Protocol version mapping for Minecraft versions
         if (version.startsWith("1.21")) return 767;
         if (version.startsWith("1.20")) return 765;
         if (version.startsWith("1.19")) return 763;
@@ -103,9 +82,6 @@ public class VersionAdapter {
         return 0; // Unknown version
     }
 
-    /**
-     * Interface for version-specific functionality
-     */
     public interface VersionSpecificAdapter {
         void initialize();
         void cleanup();
@@ -113,9 +89,6 @@ public class VersionAdapter {
         Object getNMSHandler();
     }
 
-    /**
-     * Version adapter for 1.8-1.12
-     */
     public static class Version_1_8_1_12_X implements VersionSpecificAdapter {
         private final VersionAdapter parent;
 
@@ -152,9 +125,6 @@ public class VersionAdapter {
         }
     }
 
-    /**
-     * Version adapter for 1.13-1.16
-     */
     public static class Version_1_13_1_16_X implements VersionSpecificAdapter {
         private final VersionAdapter parent;
 
@@ -191,9 +161,6 @@ public class VersionAdapter {
         }
     }
 
-    /**
-     * Version adapter for 1.17-1.20.x
-     */
     public static class Version_1_17_1_20_X implements VersionSpecificAdapter {
         private final VersionAdapter parent;
 
@@ -229,9 +196,6 @@ public class VersionAdapter {
         }
     }
 
-    /**
-     * Version adapter for 1.21+
-     */
     public static class Version_1_21_X implements VersionSpecificAdapter {
         private final VersionAdapter parent;
 

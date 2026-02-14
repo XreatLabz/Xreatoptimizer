@@ -1,0 +1,13 @@
+{"t":0,"agent":"system","event":"keyword_detected","keyword":"team"}
+{"t":0,"agent":"system","event":"mode_change","mode_from":"none","mode_to":"team"}
+{"t":0,"agent":"a042664","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"ac4a047","agent_type":"architect","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"adb56f2","agent_type":"analyst","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a887745","agent_type":"explore","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a887745","agent_type":"explore","event":"agent_stop","success":true,"duration_ms":172472}
+{"t":0,"agent":"adb56f2","agent_type":"analyst","event":"agent_stop","success":true,"duration_ms":330728}
+{"t":0,"agent":"ac4a047","agent_type":"architect","event":"agent_stop","success":true,"duration_ms":333200}
+{"t":0,"agent":"adb56f2","agent_type":"analyst","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ac4a047","agent_type":"architect","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ac4a047","agent_type":"architect","event":"agent_stop","success":true,"duration_ms":404063}
+{"t":0,"agent":"adb56f2","agent_type":"analyst","event":"agent_stop","success":true,"duration_ms":405061}

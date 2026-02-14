@@ -1,87 +1,24 @@
 package com.xreatlabs.xreatoptimizer.api;
 
-/**
- * Interface for custom optimization strategies
- * Implement this to create custom optimization logic that can be executed by XreatOptimizer
- *
- * Example implementation:
- * <pre>
- * {@code
- * public class MyCustomStrategy implements OptimizationStrategy {
- *     @Override
- *     public String getName() {
- *         return "MyCustomOptimization";
- *     }
- *
- *     @Override
- *     public String getDescription() {
- *         return "Optimizes custom plugin features";
- *     }
- *
- *     @Override
- *     public boolean shouldExecute(OptimizationContext context) {
- *         return context.getTps() < 18.0;
- *     }
- *
- *     @Override
- *     public OptimizationResult execute(OptimizationContext context) {
- *         // Your optimization logic here
- *         return OptimizationResult.success("Optimized successfully");
- *     }
- * }
- * }
- * </pre>
- *
- * @since 1.2.0
- */
+/** Optimization strategy interface */
 public interface OptimizationStrategy {
 
-    /**
-     * Get the name of this optimization strategy
-     * @return Strategy name
-     */
     String getName();
 
-    /**
-     * Get a description of what this strategy does
-     * @return Strategy description
-     */
     String getDescription();
 
-    /**
-     * Check if this strategy should execute based on current conditions
-     * @param context Current optimization context
-     * @return true if strategy should execute
-     */
     boolean shouldExecute(OptimizationContext context);
 
-    /**
-     * Execute the optimization strategy
-     * @param context Current optimization context
-     * @return Result of the optimization
-     */
     OptimizationResult execute(OptimizationContext context);
 
-    /**
-     * Get the priority of this strategy (higher = executed first)
-     * Default priority is 0
-     * @return Strategy priority
-     */
     default int getPriority() {
         return 0;
     }
 
-    /**
-     * Check if this strategy can run asynchronously
-     * @return true if strategy is thread-safe and can run async
-     */
     default boolean isAsync() {
         return false;
     }
 
-    /**
-     * Optimization context provided to strategies
-     */
     class OptimizationContext {
         private final double tps;
         private final double memoryPercent;
@@ -108,9 +45,6 @@ public interface OptimizationStrategy {
         public String getCurrentProfile() { return currentProfile; }
     }
 
-    /**
-     * Result of an optimization execution
-     */
     class OptimizationResult {
         private final boolean success;
         private final String message;

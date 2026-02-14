@@ -13,10 +13,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Prometheus metrics exporter
- * Exposes metrics via HTTP endpoint for Prometheus scraping
- */
+/** Prometheus metrics exporter */
 public class PrometheusExporter {
 
     private final XreatOptimizer plugin;
@@ -37,9 +34,6 @@ public class PrometheusExporter {
         this.bindAddress = plugin.getConfig().getString("metrics.prometheus.bind_address", "127.0.0.1");
     }
 
-    /**
-     * Start the Prometheus exporter
-     */
     public void start() {
         if (!enabled) {
             LoggerUtils.info("Prometheus metrics exporter is disabled");
@@ -75,9 +69,6 @@ public class PrometheusExporter {
         }
     }
 
-    /**
-     * Stop the Prometheus exporter
-     */
     public void stop() {
         if (updateTask != null) {
             updateTask.cancel();
@@ -91,9 +82,6 @@ public class PrometheusExporter {
         }
     }
 
-    /**
-     * Update all metrics from current server state
-     */
     private void updateMetrics() {
         try {
             // Update TPS
@@ -130,16 +118,10 @@ public class PrometheusExporter {
         }
     }
 
-    /**
-     * Get the metrics registry
-     */
     public MetricsRegistry getMetricsRegistry() {
         return metricsRegistry;
     }
 
-    /**
-     * HTTP handler for /metrics endpoint
-     */
     private class MetricsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -177,9 +159,6 @@ public class PrometheusExporter {
         }
     }
 
-    /**
-     * Check if exporter is enabled
-     */
     public boolean isEnabled() {
         return enabled;
     }

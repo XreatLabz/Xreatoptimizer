@@ -3,9 +3,7 @@ package com.xreatlabs.xreatoptimizer.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/**
- * Event fired when empty server optimization activates or deactivates
- */
+/** Empty server optimization event */
 public class EmptyServerOptimizationEvent extends Event {
     private static final HandlerList handlers = new HandlerList();
     private final boolean entering;
@@ -21,9 +19,6 @@ public class EmptyServerOptimizationEvent extends Event {
         this.memorySavedMB = memorySavedMB;
     }
 
-    /**
-     * @return true if entering empty mode, false if exiting
-     */
     public boolean isEntering() {
         return entering;
     }

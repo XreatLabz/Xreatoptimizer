@@ -11,9 +11,6 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Handles asynchronous chunk pre-generation
- */
 public class ChunkPreGenerator {
     private final XreatOptimizer plugin;
     private final ThreadPoolManager threadPoolManager;
@@ -27,7 +24,6 @@ public class ChunkPreGenerator {
     }
     
     /**
-     * Starts the chunk pre-generator system
      */
     public void start() {
         isRunning = true;
@@ -147,8 +143,6 @@ public class ChunkPreGenerator {
      * @param lookAheadChunks How many chunks ahead to pre-generate
      */
     public void startPredictivePregen(String playerName, int lookAheadChunks) {
-        // This would require tracking player movement over time to predict direction
-        // For now, we'll just log that this feature exists conceptually
         LoggerUtils.debug("Started predictive pre-generation for player: " + playerName + 
                          " looking ahead: " + lookAheadChunks + " chunks");
     }

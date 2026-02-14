@@ -11,9 +11,7 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 
-/**
- * Command executor for generating performance reports
- */
+/** Report command executor */
 public class ReportCommand implements CommandExecutor {
     private final XreatOptimizer plugin;
     

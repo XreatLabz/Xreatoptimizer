@@ -8,28 +8,7 @@ import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * PlaceholderAPI expansion for XreatOptimizer
- * Provides placeholders for server performance metrics
- * 
- * Available placeholders:
- * - %xreatopt_tps% - Current TPS
- * - %xreatopt_tps_color% - TPS with color coding
- * - %xreatopt_memory% - Memory usage percentage
- * - %xreatopt_memory_used% - Used memory in MB
- * - %xreatopt_memory_max% - Max memory in MB
- * - %xreatopt_entities% - Total entity count
- * - %xreatopt_chunks% - Loaded chunk count
- * - %xreatopt_profile% - Current optimization profile
- * - %xreatopt_players% - Online player count
- * - %xreatopt_hibernated_chunks% - Hibernated chunk count
- * - %xreatopt_hibernated_entities% - Hibernated entity count
- * - %xreatopt_lag_spikes% - Number of lag spikes detected
- * - %xreatopt_lag_score% - Lag severity score (0-100)
- * - %xreatopt_status% - Overall server status (Good/Warning/Critical)
- * - %xreatopt_predicted_tps% - Predicted TPS (30s ahead)
- * - %xreatopt_anomaly_detected% - Whether anomaly is detected
- */
+/** PlaceholderAPI expansion */
 public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.PlaceholderExpansion {
     
     private final XreatOptimizer plugin;
@@ -55,7 +34,7 @@ public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.
     
     @Override
     public boolean persist() {
-        return true; // Don't unload when PlaceholderAPI reloads
+        return true;
     }
     
     @Override
@@ -80,7 +59,7 @@ public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.
         }
         
         if (params.equalsIgnoreCase("tps_5m")) {
-            return String.format("%.2f", TPSUtils.getTPS()); // 5-minute average (simplified)
+            return String.format("%.2f", TPSUtils.getTPS()); // 5-minute average
         }
         
         // Memory placeholders
@@ -248,12 +227,12 @@ public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.
             return color + lagScore;
         }
 
-        // Predicted TPS (from PredictiveEngine)
+        // Predicted TPS (from TrendAnalyzer)
         if (params.equalsIgnoreCase("predicted_tps")) {
-            if (plugin.getPredictiveEngine() != null && plugin.getPredictiveEngine().isRunning()) {
+            if (plugin.getTrendAnalyzer() != null && plugin.getTrendAnalyzer().isRunning()) {
                 try {
-                    com.xreatlabs.xreatoptimizer.ai.PredictiveEngine.Prediction prediction =
-                        plugin.getPredictiveEngine().predictFuture(30);
+                    com.xreatlabs.xreatoptimizer.core.PerformanceTrendAnalyzer.TrendPrediction prediction =
+                        plugin.getTrendAnalyzer().predictFuture(30);
                     return String.format("%.2f", prediction.predictedTps);
                 } catch (Exception e) {
                     return "N/A";
@@ -263,10 +242,10 @@ public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.
         }
 
         if (params.equalsIgnoreCase("predicted_tps_color")) {
-            if (plugin.getPredictiveEngine() != null && plugin.getPredictiveEngine().isRunning()) {
+            if (plugin.getTrendAnalyzer() != null && plugin.getTrendAnalyzer().isRunning()) {
                 try {
-                    com.xreatlabs.xreatoptimizer.ai.PredictiveEngine.Prediction prediction =
-                        plugin.getPredictiveEngine().predictFuture(30);
+                    com.xreatlabs.xreatoptimizer.core.PerformanceTrendAnalyzer.TrendPrediction prediction =
+                        plugin.getTrendAnalyzer().predictFuture(30);
                     double tps = prediction.predictedTps;
                     String color;
                     if (tps >= 19.0) color = "&a";
@@ -281,13 +260,11 @@ public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.
             return "&7N/A";
         }
 
-        // Anomaly detection status
+        // Alert status
         if (params.equalsIgnoreCase("anomaly_detected")) {
-            if (plugin.getAnomalyDetector() != null && plugin.getAnomalyDetector().isRunning()) {
-                // Check if current conditions indicate anomaly
+            if (plugin.getAlertManager() != null && plugin.getAlertManager().isRunning()) {
                 double tps = TPSUtils.getTPS();
                 double mem = MemoryUtils.getMemoryUsagePercentage();
-
                 boolean anomaly = tps < 15.0 || mem > 85.0;
                 return anomaly ? "&cYes" : "&aNo";
             }
@@ -295,10 +272,10 @@ public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.
         }
 
         if (params.equalsIgnoreCase("prediction_confidence")) {
-            if (plugin.getPredictiveEngine() != null && plugin.getPredictiveEngine().isRunning()) {
+            if (plugin.getTrendAnalyzer() != null && plugin.getTrendAnalyzer().isRunning()) {
                 try {
-                    com.xreatlabs.xreatoptimizer.ai.PredictiveEngine.Prediction prediction =
-                        plugin.getPredictiveEngine().predictFuture(30);
+                    com.xreatlabs.xreatoptimizer.core.PerformanceTrendAnalyzer.TrendPrediction prediction =
+                        plugin.getTrendAnalyzer().predictFuture(30);
                     return String.format("%.0f%%", prediction.confidence * 100);
                 } catch (Exception e) {
                     return "N/A";
@@ -307,6 +284,6 @@ public class XreatPlaceholderExpansion extends me.clip.placeholderapi.expansion.
             return "N/A";
         }
 
-        return null; // Unknown placeholder
+        return null;
     }
 }

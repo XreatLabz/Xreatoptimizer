@@ -10,14 +10,13 @@ import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Tracks dropped items and removes them after a configurable time period
- * with countdown warnings
- */
+/** Tracks and removes old dropped items with warnings */
 public class ItemDropTracker {
     private final XreatOptimizer plugin;
     private final Map<UUID, Long> itemSpawnTimes = new ConcurrentHashMap<>();
@@ -25,58 +24,45 @@ public class ItemDropTracker {
     private BukkitTask countdownTask;
     private volatile boolean isRunning = false;
 
-    // Configuration values (in seconds)
-    private int itemLifetime = 600; // 10 minutes default
-    private int warningTime = 10;   // Last 10 seconds default
+    private int itemLifetime = 600;
+    private int warningTime = 10;
 
     public ItemDropTracker(XreatOptimizer plugin) {
         this.plugin = plugin;
         loadConfig();
     }
 
-    /**
-     * Load configuration values
-     */
     public void loadConfig() {
         itemLifetime = plugin.getConfig().getInt("item_removal.lifetime_seconds", 600);
         warningTime = plugin.getConfig().getInt("item_removal.warning_seconds", 10);
     }
 
-    /**
-     * Starts the item tracking system
-     */
     public void start() {
-        // Task to check and remove expired items (runs every second)
         checkTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::checkAndRemoveExpiredItems,
-            20L,  // Initial delay (1 second)
-            20L   // Repeat every 1 second
+            20L,
+            20L
         );
 
-        // Task to show countdown warnings (runs every second)
         countdownTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::showCountdownWarnings,
-            20L,  // Initial delay (1 second)
-            20L   // Repeat every 1 second
+            20L,
+            20L
         );
 
-        // Task to cleanup picked up items from tracking (runs every 30 seconds)
         Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::cleanupPickedUpItems,
-            600L,  // Initial delay (30 seconds)
-            600L   // Repeat every 30 seconds
+            600L,
+            600L
         );
 
         isRunning = true;
         LoggerUtils.info("Item drop tracker started. Items will be removed after " + itemLifetime + " seconds.");
     }
 
-    /**
-     * Stops the item tracking system
-     */
     public void stop() {
         isRunning = false;
         if (checkTask != null) {
@@ -89,25 +75,17 @@ public class ItemDropTracker {
         LoggerUtils.info("Item drop tracker stopped.");
     }
 
-    /**
-     * Track a newly spawned item
-     */
     public void trackItem(Item item) {
         if (!isRunning) return;
         itemSpawnTimes.put(item.getUniqueId(), System.currentTimeMillis());
     }
 
-    /**
-     * Resolve an entity by UUID efficiently.
-     * Uses Bukkit.getEntity() on 1.12+ with fallback to world iteration.
-     */
+    /** Resolve entity by UUID */
     private org.bukkit.entity.Entity resolveEntity(UUID id) {
-        // Try Bukkit.getEntity (available 1.12+)
         try {
             org.bukkit.entity.Entity e = Bukkit.getEntity(id);
             if (e != null) return e;
         } catch (NoSuchMethodError ignored) {
-            // Fallback for pre-1.12
             for (org.bukkit.World world : Bukkit.getWorlds()) {
                 for (org.bukkit.entity.Entity entity : world.getEntities()) {
                     if (entity.getUniqueId().equals(id)) return entity;
@@ -117,15 +95,12 @@ public class ItemDropTracker {
         return null;
     }
 
-    /**
-     * Check and remove items that have expired
-     */
     private void checkAndRemoveExpiredItems() {
         if (!isRunning) return;
 
         long currentTime = System.currentTimeMillis();
         int removed = 0;
-        java.util.List<UUID> toRemove = new java.util.ArrayList<>();
+        List<UUID> toRemove = new ArrayList<>();
 
         for (Map.Entry<UUID, Long> entry : itemSpawnTimes.entrySet()) {
             UUID itemId = entry.getKey();
@@ -151,13 +126,10 @@ public class ItemDropTracker {
         }
     }
 
-    /**
-     * Cleanup items that were picked up by players (memory leak prevention)
-     */
     private void cleanupPickedUpItems() {
         if (!isRunning) return;
 
-        java.util.List<UUID> toRemove = new java.util.ArrayList<>();
+        List<UUID> toRemove = new ArrayList<>();
 
         for (UUID itemId : itemSpawnTimes.keySet()) {
             org.bukkit.entity.Entity entity = resolveEntity(itemId);
@@ -175,9 +147,6 @@ public class ItemDropTracker {
         }
     }
 
-    /**
-     * Show countdown warnings to nearby players
-     */
     private void showCountdownWarnings() {
         if (!isRunning) return;
 
@@ -215,9 +184,6 @@ public class ItemDropTracker {
         }
     }
 
-    /**
-     * Manually remove all tracked items immediately
-     */
     public int removeAllItems() {
         int removed = 0;
 
@@ -238,23 +204,14 @@ public class ItemDropTracker {
         return removed;
     }
 
-    /**
-     * Get the number of currently tracked items
-     */
     public int getTrackedItemCount() {
         return itemSpawnTimes.size();
     }
 
-    /**
-     * Check if the tracker is running
-     */
     public boolean isRunning() {
         return isRunning;
     }
 
-    /**
-     * Reload configuration and restart
-     */
     public void reload() {
         if (isRunning) {
             stop();
@@ -263,19 +220,11 @@ public class ItemDropTracker {
         start();
     }
     
-    /**
-     * Version-safe action bar sender.
-     * Works on 1.8+ with fallback for servers without spigot() method.
-     */
     private void sendActionBar(Player player, String message) {
         try {
-            // Try Spigot's action bar method (1.9+)
             player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
         } catch (NoSuchMethodError | NoClassDefFoundError e) {
-            // Fallback for 1.8 or servers without BungeeCord chat API
-            // Just skip action bar on older versions - chat messages still work
         } catch (Exception e) {
-            // Any other error, silently ignore
         }
     }
 }

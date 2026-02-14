@@ -17,9 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Handles clicks in the XreatOptimizer GUI
- */
+/** GUI click handler */
 public class GUIClickListener implements Listener {
 
     private final XreatOptimizer plugin;

@@ -20,17 +20,6 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Advanced Redstone and Hopper Optimizer
- * 
- * Optimizations:
- * - Batches redstone updates to reduce lag spikes
- * - Caches redstone circuit states
- * - Throttles excessive hopper checks
- * - Groups adjacent hoppers for batch processing
- * - Detects and optimizes redstone loops
- * - Reduces unnecessary block updates
- */
 public class RedstoneHopperOptimizer implements Listener {
     
     private final XreatOptimizer plugin;
@@ -45,9 +34,6 @@ public class RedstoneHopperOptimizer implements Listener {
     private final long HOPPER_THROTTLE_TIME = 100; // ms
     private final int MAX_HOPPERS_PER_CHUNK = 16;
     
-    /**
-     * Hopper data tracking
-     */
     private static class HopperData {
         final Location location;
         long lastCheck = 0;
@@ -75,9 +61,6 @@ public class RedstoneHopperOptimizer implements Listener {
         this.plugin = plugin;
     }
     
-    /**
-     * Start the optimizer
-     */
     public void start() {
         // DISABLED by default - hopper optimization can break item sorters and farms
         if (!plugin.getConfig().getBoolean("redstone_hopper_optimization.enabled", false)) {
@@ -104,9 +87,6 @@ public class RedstoneHopperOptimizer implements Listener {
         LoggerUtils.info("Redstone/Hopper optimizer started - reducing redstone and hopper lag");
     }
     
-    /**
-     * Stop the optimizer
-     */
     public void stop() {
         isRunning = false;
         
@@ -121,9 +101,6 @@ public class RedstoneHopperOptimizer implements Listener {
         LoggerUtils.info("Redstone/Hopper optimizer stopped");
     }
     
-    /**
-     * Handle redstone events with caching
-     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onRedstoneChange(BlockRedstoneEvent event) {
         if (!isRunning) return;
@@ -145,14 +122,8 @@ public class RedstoneHopperOptimizer implements Listener {
         redstoneUpdateCache.put(loc, now);
     }
     
-    /**
-     * Handle hopper item movement - MONITORING ONLY
-     * 
-     * IMPORTANT: This method no longer cancels hopper events.
-     * Cancelling hopper transfers was breaking item sorters, farms, and other
-     * redstone contraptions. Now we only monitor for statistics.
-     */
-    @EventHandler(priority = EventPriority.MONITOR)  // Changed to MONITOR - no cancellation
+    /** Monitor hopper item movement for statistics */
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onHopperMove(InventoryMoveItemEvent event) {
         if (!isRunning) return;
         
@@ -170,9 +141,6 @@ public class RedstoneHopperOptimizer implements Listener {
         }
     }
     
-    /**
-     * Scan worlds and optimize hoppers
-     */
     private void scanAndOptimizeHoppers() {
         plugin.getThreadPoolManager().executeAnalyticsTask(() -> {
             int totalHoppers = 0;
@@ -212,9 +180,6 @@ public class RedstoneHopperOptimizer implements Listener {
         });
     }
     
-    /**
-     * Cleanup old cache entries
-     */
     private void cleanupCaches() {
         long now = System.currentTimeMillis();
         long cacheExpiry = 5000; // 5 seconds
@@ -230,9 +195,6 @@ public class RedstoneHopperOptimizer implements Listener {
         );
     }
     
-    /**
-     * Get optimization statistics
-     */
     public Map<String, Object> getStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("redstone_cache_size", redstoneUpdateCache.size());
@@ -241,9 +203,6 @@ public class RedstoneHopperOptimizer implements Listener {
         return stats;
     }
     
-    /**
-     * Check if a location has a cached hopper
-     */
     public boolean isHopperOptimized(Location loc) {
         return optimizedHoppers.contains(loc);
     }

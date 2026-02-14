@@ -1,11 +1,5 @@
 package com.xreatlabs.xreatoptimizer.api;
 
-/**
- * Base class for optimization events
- * Events are fired at key points in the optimization lifecycle
- *
- * @since 1.2.0
- */
 public abstract class OptimizationEvent {
 
     private final long timestamp;
@@ -15,34 +9,18 @@ public abstract class OptimizationEvent {
         this.timestamp = System.currentTimeMillis();
     }
 
-    /**
-     * Get the timestamp when this event was created
-     * @return Event timestamp in milliseconds
-     */
     public long getTimestamp() {
         return timestamp;
     }
 
-    /**
-     * Check if this event is cancellable
-     * @return true if event can be cancelled
-     */
     public boolean isCancellable() {
         return false;
     }
 
-    /**
-     * Check if this event has been cancelled
-     * @return true if cancelled
-     */
     public boolean isCancelled() {
         return cancelled;
     }
 
-    /**
-     * Set the cancelled state of this event
-     * @param cancelled true to cancel the event
-     */
     public void setCancelled(boolean cancelled) {
         if (!isCancellable()) {
             throw new UnsupportedOperationException("This event cannot be cancelled");
@@ -50,9 +28,6 @@ public abstract class OptimizationEvent {
         this.cancelled = cancelled;
     }
 
-    /**
-     * Event fired before optimization runs
-     */
     public static class BeforeOptimizationEvent extends OptimizationEvent {
         private final String profile;
         private final double tps;
@@ -74,9 +49,6 @@ public abstract class OptimizationEvent {
         public double getMemoryPercent() { return memoryPercent; }
     }
 
-    /**
-     * Event fired after optimization completes
-     */
     public static class AfterOptimizationEvent extends OptimizationEvent {
         private final String profile;
         private final long executionTimeMs;
@@ -93,9 +65,6 @@ public abstract class OptimizationEvent {
         public boolean isSuccess() { return success; }
     }
 
-    /**
-     * Event fired when optimization profile changes
-     */
     public static class ProfileChangeEvent extends OptimizationEvent {
         private final String oldProfile;
         private final String newProfile;
@@ -117,9 +86,6 @@ public abstract class OptimizationEvent {
         public String getReason() { return reason; }
     }
 
-    /**
-     * Event fired when a lag spike is detected
-     */
     public static class LagSpikeEvent extends OptimizationEvent {
         private final double peakMs;
         private final String cause;
@@ -136,9 +102,6 @@ public abstract class OptimizationEvent {
         public double getTps() { return tps; }
     }
 
-    /**
-     * Event fired when memory pressure is detected
-     */
     public static class MemoryPressureEvent extends OptimizationEvent {
         private final double memoryPercent;
         private final long usedMb;
@@ -162,9 +125,6 @@ public abstract class OptimizationEvent {
         public PressureLevel getLevel() { return level; }
     }
 
-    /**
-     * Event fired when an anomaly is detected
-     */
     public static class AnomalyDetectedEvent extends OptimizationEvent {
         private final String anomalyType;
         private final String description;

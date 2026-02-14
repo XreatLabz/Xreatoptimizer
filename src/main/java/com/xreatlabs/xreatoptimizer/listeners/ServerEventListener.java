@@ -14,11 +14,6 @@ import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 
-/**
- * Main event listener for server-wide optimization events
- * Handles player join/quit for empty server optimization
- * Manages chunk load/unload events for memory optimization
- */
 public class ServerEventListener implements Listener {
 
     private final XreatOptimizer plugin;
@@ -31,7 +26,6 @@ public class ServerEventListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        // Immediately restore normal operation when player joins
         if (emptyServerOptimizer != null && emptyServerOptimizer.isInEmptyMode()) {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 emptyServerOptimizer.restoreNormalOperation();

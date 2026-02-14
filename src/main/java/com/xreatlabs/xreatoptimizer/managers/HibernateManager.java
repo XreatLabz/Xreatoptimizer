@@ -10,23 +10,12 @@ import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Tameable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Manages entity hibernation for performance optimization
- * 
- * IMPORTANT: This manager is DISABLED by default to prevent data loss.
- * Entity hibernation can cause issues with:
- * - Armor stands losing their items
- * - Named entities being lost
- * - Player-placed entities disappearing
- * 
- * Only enable if you understand the risks and have proper backups.
- */
+/** Entity hibernation manager (disabled by default - can cause data loss) */
 public class HibernateManager {
     
     private final XreatOptimizer plugin;
@@ -35,13 +24,12 @@ public class HibernateManager {
     private final Set<String> hibernatedChunks = ConcurrentHashMap.newKeySet();
     private volatile boolean isRunning = false;
     
-    // Data class to store hibernation information
     private static class HibernationData {
         long hibernationTime;
         String worldName;
         double x, y, z;
         String entityType;
-        String entityNBT; // Simplified representation
+        String entityNBT;
         
         public HibernationData(Entity entity) {
             this.hibernationTime = System.currentTimeMillis();
@@ -51,8 +39,7 @@ public class HibernateManager {
             this.y = loc.getY();
             this.z = loc.getZ();
             this.entityType = entity.getType().name();
-            // In a real implementation, we would store essential NBT data
-            this.entityNBT = "nbt_stub"; // Placeholder
+            this.entityNBT = "stored";
         }
     }
     
@@ -60,26 +47,18 @@ public class HibernateManager {
         this.plugin = plugin;
     }
     
-    /**
-     * Checks if an entity should be protected from hibernation.
-     * Uses version-safe ProtectedEntities utility for cross-version compatibility.
-     */
+    /** Check if entity should be protected */
     private boolean isEntityProtected(Entity entity) {
         return ProtectedEntities.isProtected(entity);
     }
     
-    /**
-     * Starts the hibernate manager
-     */
     public void start() {
-        // DISABLED by default - hibernation can cause entity data loss
         if (plugin.getConfig().getBoolean("hibernate.enabled", false)) {
-            // Run hibernation checks every 10 seconds
             hibernateTask = plugin.getServer().getScheduler().runTaskTimer(
                 plugin,
                 this::runHibernateCycle,
-                200L,  // Initial delay (10 seconds)
-                400L   // Repeat interval (20 seconds)
+                200L,
+                400L
             );
             
             isRunning = true;
@@ -89,9 +68,6 @@ public class HibernateManager {
         }
     }
     
-    /**
-     * Stops the hibernate manager
-     */
     public void stop() {
         isRunning = false;
         if (hibernateTask != null) {
@@ -100,38 +76,26 @@ public class HibernateManager {
         LoggerUtils.info("Hibernate manager stopped.");
     }
     
-    /**
-     * Runs a hibernation cycle
-     */
     private void runHibernateCycle() {
         if (!isRunning || TPSUtils.isTPSBelow(10.0)) {
-            // Don't hibernate if TPS is too low (safety check)
             return;
         }
         
-        // Check all worlds for hibernation candidates
         for (World world : plugin.getServer().getWorlds()) {
             processWorldForHibernate(world);
         }
     }
     
-    /**
-     * Processes a world for hibernation candidates
-     */
     private void processWorldForHibernate(World world) {
-        // Get hibernate radius from config
         int hibernateRadius = plugin.getConfig().getInt("hibernate.radius", 64);
         
-        // Find all chunks that are far from players
         Set<Chunk> chunksToHibernate = new HashSet<>();
         Set<Chunk> activeChunks = new HashSet<>();
         
-        // Identify active chunks (near players)
         for (Player player : world.getPlayers()) {
             Chunk playerChunk = player.getLocation().getChunk();
             activeChunks.add(playerChunk);
             
-            // Add surrounding chunks within hibernate radius
             int radiusInChunks = (int) Math.ceil(hibernateRadius / 16.0);
             for (int x = -radiusInChunks; x <= radiusInChunks; x++) {
                 for (int z = -radiusInChunks; z <= radiusInChunks; z++) {
@@ -141,14 +105,12 @@ public class HibernateManager {
             }
         }
         
-        // Identify chunks to hibernate (not active)
         for (Chunk chunk : world.getLoadedChunks()) {
             if (!activeChunks.contains(chunk)) {
                 chunksToHibernate.add(chunk);
             }
         }
         
-        // Hibernate entities in hibernation chunks
         for (Chunk chunk : chunksToHibernate) {
             String chunkKey = getChunkKey(chunk);
             if (!hibernatedChunks.contains(chunkKey)) {
@@ -157,7 +119,6 @@ public class HibernateManager {
             }
         }
         
-        // Wake up entities in chunks that now have players
         Iterator<String> hibernatedChunkIter = hibernatedChunks.iterator();
         while (hibernatedChunkIter.hasNext()) {
             String chunkKey = hibernatedChunkIter.next();
@@ -168,36 +129,26 @@ public class HibernateManager {
         }
     }
     
-    /**
-     * Hibernate all entities in a chunk
-     * 
-     * IMPORTANT: This method now skips ALL protected entity types to prevent
-     * data loss and gameplay issues. Only hostile mobs far from players
-     * will be hibernated.
-     */
+    /** Hibernate entities in chunk (skips protected types) */
     private void hibernateChunkEntities(Chunk chunk) {
         Entity[] entities = chunk.getEntities();
         int hibernatedCount = 0;
         int skippedCount = 0;
         
         for (Entity entity : entities) {
-            // Don't hibernate players
             if (entity instanceof Player) {
                 continue;
             }
             
-            // Don't hibernate protected entities (armor stands, pets, farm animals, etc.)
             if (isEntityProtected(entity)) {
                 skippedCount++;
                 continue;
             }
             
-            // Store entity data before removing
             HibernationData data = new HibernationData(entity);
             String entityKey = getEntityKey(entity);
             hibernatedEntities.put(entityKey, data);
             
-            // Remove the entity from the world
             entity.remove();
             hibernatedCount++;
         }
@@ -209,11 +160,7 @@ public class HibernateManager {
         }
     }
     
-    /**
-     * Wake up entities in a chunk
-     */
     private void wakeChunk(String chunkKey) {
-        // Find and recreate entities that were hibernated in this chunk
         List<HibernationData> entitiesToWake = new ArrayList<>();
         
         Iterator<Map.Entry<String, HibernationData>> iter = hibernatedEntities.entrySet().iterator();
@@ -226,7 +173,6 @@ public class HibernateManager {
             }
         }
         
-        // Recreate the entities in the world
         for (HibernationData data : entitiesToWake) {
             World world = org.bukkit.Bukkit.getWorld(data.worldName);
             if (world != null) {
@@ -234,7 +180,6 @@ public class HibernateManager {
                     Location loc = new Location(world, data.x, data.y, data.z);
                     EntityType type = EntityType.valueOf(data.entityType);
                     
-                    // Attempt to spawn the entity
                     Entity entity = world.spawnEntity(loc, type);
                     
                     LoggerUtils.debug("Restored entity " + data.entityType + " at " + 
@@ -248,11 +193,7 @@ public class HibernateManager {
         LoggerUtils.debug("Woke chunk " + chunkKey + ", restored " + entitiesToWake.size() + " entities");
     }
     
-    /**
-     * Checks if a chunk should be woken up
-     */
     private boolean shouldWakeChunk(String chunkKey, Set<Chunk> activeChunks) {
-        // Parse chunk key to get world, x, z
         String[] parts = chunkKey.split(":");
         if (parts.length < 3) return false;
         
@@ -267,16 +208,10 @@ public class HibernateManager {
         return activeChunks.contains(chunk);
     }
     
-    /**
-     * Gets a unique key for a chunk
-     */
     private String getChunkKey(Chunk chunk) {
         return chunk.getWorld().getName() + ":" + chunk.getX() + ":" + chunk.getZ();
     }
     
-    /**
-     * Gets a unique key for an entity
-     */
     private String getEntityKey(Entity entity) {
         Location loc = entity.getLocation();
         return entity.getWorld().getName() + ":" + 
@@ -284,30 +219,18 @@ public class HibernateManager {
                entity.getUniqueId().toString();
     }
     
-    /**
-     * Gets the number of hibernated chunks
-     */
     public int getHibernatedChunkCount() {
         return hibernatedChunks.size();
     }
     
-    /**
-     * Gets the number of hibernated entities
-     */
     public int getHibernatedEntityCount() {
         return hibernatedEntities.size();
     }
     
-    /**
-     * Checks if the hibernate manager is running
-     */
     public boolean isRunning() {
         return isRunning;
     }
 
-    /**
-     * Set whether the hibernate manager is enabled
-     */
     public void setEnabled(boolean enabled) {
         if (enabled && !isRunning) {
             start();
@@ -316,9 +239,6 @@ public class HibernateManager {
         }
     }
 
-    /**
-     * Set the hibernate radius
-     */
     public void setRadius(int radius) {
         plugin.getConfig().set("hibernate.radius", radius);
         LoggerUtils.info("Hibernate radius set to: " + radius);

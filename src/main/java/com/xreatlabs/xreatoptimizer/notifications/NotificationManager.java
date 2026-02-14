@@ -16,10 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Enhanced notification manager for Discord webhooks
- * Sends rich notifications with graphs, scheduled reports, and severity levels
- */
+/** Discord webhook notification manager */
 public class NotificationManager {
 
     private final XreatOptimizer plugin;
@@ -63,16 +60,10 @@ public class NotificationManager {
         scheduleReports();
     }
     
-    /**
-     * Check if notifications are enabled
-     */
     public boolean isEnabled() {
         return plugin.getConfig().getBoolean("notifications.enabled", false);
     }
 
-    /**
-     * Schedule daily and weekly reports
-     */
     private void scheduleReports() {
         if (!isEnabled()) return;
 
@@ -90,9 +81,6 @@ public class NotificationManager {
         }
     }
 
-    /**
-     * Schedule daily performance report
-     */
     private void scheduleDailyReport(int targetHour) {
         // Calculate delay until next target hour
         LocalDateTime now = LocalDateTime.now();
@@ -114,9 +102,6 @@ public class NotificationManager {
         LoggerUtils.info("Daily report scheduled for " + targetHour + ":00");
     }
 
-    /**
-     * Schedule weekly performance report
-     */
     private void scheduleWeeklyReport(String targetDay, int targetHour) {
         // Calculate delay until next target day/hour
         LocalDateTime now = LocalDateTime.now();
@@ -140,9 +125,6 @@ public class NotificationManager {
         LoggerUtils.info("Weekly report scheduled for " + targetDay + " at " + targetHour + ":00");
     }
 
-    /**
-     * Send daily performance report
-     */
     private void sendDailyReport() {
         if (!isEnabled()) return;
 
@@ -175,9 +157,6 @@ public class NotificationManager {
         sendWebhook(json);
     }
 
-    /**
-     * Send weekly performance report
-     */
     private void sendWeeklyReport() {
         if (!isEnabled()) return;
 
@@ -203,9 +182,6 @@ public class NotificationManager {
         sendWebhook(json);
     }
 
-    /**
-     * Format server uptime
-     */
     private String formatUptime() {
         long uptimeMs = System.currentTimeMillis() - plugin.getStartTime();
         long days = uptimeMs / (24 * 60 * 60 * 1000);
@@ -221,9 +197,6 @@ public class NotificationManager {
         }
     }
 
-    /**
-     * Shutdown scheduled tasks
-     */
     public void shutdown() {
         if (dailyReportTask != null) {
             dailyReportTask.cancel();
@@ -233,16 +206,10 @@ public class NotificationManager {
         }
     }
     
-    /**
-     * Get the Discord webhook URL
-     */
     private String getWebhookUrl() {
         return plugin.getConfig().getString("notifications.discord_webhook", "");
     }
     
-    /**
-     * Check if we should send a notification (per-event-type cooldown)
-     */
     private boolean shouldNotify(String eventType) {
         long now = System.currentTimeMillis();
         Long lastTime = lastNotificationTimes.get(eventType);
@@ -253,9 +220,6 @@ public class NotificationManager {
         return true;
     }
     
-    /**
-     * Send a lag spike notification
-     */
     public void notifyLagSpike(double peakMs, String cause) {
         if (!isEnabled() || !plugin.getConfig().getBoolean("notifications.notify_on_lag_spike", true)) {
             return;
@@ -287,9 +251,6 @@ public class NotificationManager {
         sendWebhook(json);
     }
 
-    /**
-     * Send a memory pressure notification
-     */
     public void notifyMemoryPressure(double percentage) {
         if (!isEnabled() || !plugin.getConfig().getBoolean("notifications.notify_on_memory_pressure", true)) {
             return;
@@ -320,9 +281,6 @@ public class NotificationManager {
         sendWebhook(json);
     }
 
-    /**
-     * Send a TPS drop notification
-     */
     public void notifyLowTPS(double tps) {
         if (!isEnabled() || !plugin.getConfig().getBoolean("notifications.notify_on_low_tps", true)) {
             return;
@@ -353,9 +311,6 @@ public class NotificationManager {
         sendWebhook(json);
     }
     
-    /**
-     * Send a server start notification
-     */
     public void notifyServerStart() {
         if (!isEnabled() || !plugin.getConfig().getBoolean("notifications.notify_on_start", false)) {
             return;
@@ -372,9 +327,6 @@ public class NotificationManager {
         sendWebhook(json);
     }
     
-    /**
-     * Send a profile change notification
-     */
     public void notifyProfileChange(String oldProfile, String newProfile) {
         if (!isEnabled() || !plugin.getConfig().getBoolean("notifications.notify_on_profile_change", false)) {
             return;
@@ -391,9 +343,6 @@ public class NotificationManager {
         sendWebhook(json);
     }
 
-    /**
-     * Send an anomaly detection notification
-     */
     public void notifyAnomaly(String type, String description, String recommendation) {
         if (!isEnabled()) {
             return;
@@ -416,9 +365,6 @@ public class NotificationManager {
         sendWebhook(json);
     }
 
-    /**
-     * Send a test notification
-     */
     public CompletableFuture<Boolean> sendTestNotification() {
         String json = buildEmbed(
             "🧪 Test Notification",
@@ -432,9 +378,6 @@ public class NotificationManager {
         return sendWebhookAsync(json);
     }
     
-    /**
-     * Build a rich Discord embed JSON with severity indicator
-     */
     private String buildRichEmbed(String title, String description, int color, Severity severity, EmbedField... fields) {
         StringBuilder fieldsJson = new StringBuilder();
         for (int i = 0; i < fields.length; i++) {
@@ -468,9 +411,6 @@ public class NotificationManager {
         );
     }
 
-    /**
-     * Build a Discord embed JSON (legacy method for backward compatibility)
-     */
     private String buildEmbed(String title, String description, int color, EmbedField... fields) {
         StringBuilder fieldsJson = new StringBuilder();
         for (int i = 0; i < fields.length; i++) {
@@ -502,16 +442,10 @@ public class NotificationManager {
         );
     }
     
-    /**
-     * Send webhook synchronously
-     */
     private void sendWebhook(String json) {
         sendWebhookAsync(json);
     }
     
-    /**
-     * Send webhook asynchronously
-     */
     private CompletableFuture<Boolean> sendWebhookAsync(String json) {
         String url = getWebhookUrl();
         if (url == null || url.isEmpty()) {
@@ -548,9 +482,6 @@ public class NotificationManager {
         }
     }
     
-    /**
-     * Escape special characters for JSON
-     */
     private String escapeJson(String text) {
         if (text == null) return "";
         return text
@@ -561,9 +492,6 @@ public class NotificationManager {
             .replace("\t", "\\t");
     }
     
-    /**
-     * Embed field helper class
-     */
     private static class EmbedField {
         final String name;
         final String value;

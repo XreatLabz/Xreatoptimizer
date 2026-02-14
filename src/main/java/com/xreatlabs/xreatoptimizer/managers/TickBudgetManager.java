@@ -9,16 +9,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 
-/**
- * Tick Budget Manager - Distributes processing across multiple ticks
- * 
- * Features:
- * - Priority-based task scheduling
- * - Automatic load balancing
- * - Prevents single-tick lag spikes
- * - Dynamic budget adjustment based on TPS
- * - Task queuing and batching
- */
 public class TickBudgetManager {
     
     private final XreatOptimizer plugin;
@@ -27,19 +17,15 @@ public class TickBudgetManager {
     private BukkitTask processorTask;
     private volatile boolean isRunning = false;
     
-    // Budget configuration (in milliseconds per tick)
-    private double maxTickBudget = 40.0; // Leave 10ms buffer for other operations
+    private double maxTickBudget = 40.0;
     private double currentBudget = maxTickBudget;
     
-    /**
-     * Task priority levels
-     */
     public enum Priority {
-        CRITICAL(0),    // Must execute immediately
-        HIGH(1),        // Execute within 1 tick
-        NORMAL(2),      // Execute within 5 ticks
-        LOW(3),         // Execute within 20 ticks
-        BACKGROUND(4);  // Execute when server is idle
+        CRITICAL(0),
+        HIGH(1),
+        NORMAL(2),
+        LOW(3),
+        BACKGROUND(4);
         
         private final int value;
         
@@ -52,9 +38,6 @@ public class TickBudgetManager {
         }
     }
     
-    /**
-     * Task category for budget tracking
-     */
     private static class TaskCategory {
         final String name;
         double budgetUsed = 0;
@@ -76,9 +59,6 @@ public class TickBudgetManager {
         }
     }
     
-    /**
-     * Scheduled task with priority and timing
-     */
     private static class ScheduledTask implements Comparable<ScheduledTask> {
         final String id;
         final Runnable task;
@@ -112,9 +92,6 @@ public class TickBudgetManager {
         initializeCategories();
     }
     
-    /**
-     * Initialize task categories with default budgets
-     */
     private void initializeCategories() {
         registerCategory("entity_processing", 15.0);
         registerCategory("chunk_processing", 10.0);
@@ -124,18 +101,12 @@ public class TickBudgetManager {
         registerCategory("general", 10.0);
     }
     
-    /**
-     * Register a task category with budget limit
-     */
     public void registerCategory(String name, double budgetLimit) {
         TaskCategory category = new TaskCategory(name);
         category.budgetLimit = budgetLimit;
         categories.put(name, category);
     }
     
-    /**
-     * Start the tick budget manager
-     */
     public void start() {
         if (!plugin.getConfig().getBoolean("tick_budget.enabled", true)) {
             LoggerUtils.info("Tick budget manager is disabled in config.");
@@ -155,9 +126,6 @@ public class TickBudgetManager {
         LoggerUtils.info("Tick budget manager started - distributing load across ticks");
     }
     
-    /**
-     * Stop the tick budget manager
-     */
     public void stop() {
         isRunning = false;
         
@@ -171,9 +139,6 @@ public class TickBudgetManager {
         LoggerUtils.info("Tick budget manager stopped");
     }
     
-    /**
-     * Schedule a task with priority and category
-     */
     public void scheduleTask(String id, Runnable task, Priority priority, String category, double estimatedTimeMs) {
         if (!isRunning) {
             // If not running, execute immediately
@@ -188,16 +153,10 @@ public class TickBudgetManager {
         taskQueue.offer(scheduledTask);
     }
     
-    /**
-     * Schedule a task with default category
-     */
     public void scheduleTask(String id, Runnable task, Priority priority) {
         scheduleTask(id, task, priority, "general", 1.0);
     }
     
-    /**
-     * Process tasks for this tick
-     */
     private void processTick() {
         if (!isRunning) return;
         
@@ -218,8 +177,7 @@ public class TickBudgetManager {
             // Check category budget
             TaskCategory category = categories.get(task.category);
             if (category != null && !category.hasbudgetRemaining()) {
-                // This category exhausted, skip for now
-                // In a real implementation, you'd want to handle this better
+                // This category exhausted, skip
                 break;
             }
             
@@ -263,9 +221,6 @@ public class TickBudgetManager {
         }
     }
     
-    /**
-     * Adjust budget based on current TPS
-     */
     private void adjustBudgetBasedOnTPS() {
         double tps = getTPS();
         
@@ -281,9 +236,6 @@ public class TickBudgetManager {
         }
     }
     
-    /**
-     * Get current TPS (simplified)
-     */
     private double getTPS() {
         try {
             return com.xreatlabs.xreatoptimizer.utils.TPSUtils.getTPS();
@@ -292,9 +244,6 @@ public class TickBudgetManager {
         }
     }
     
-    /**
-     * Get statistics
-     */
     public Map<String, Object> getStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("queue_size", taskQueue.size());
@@ -316,16 +265,10 @@ public class TickBudgetManager {
         return stats;
     }
     
-    /**
-     * Get queue size
-     */
     public int getQueueSize() {
         return taskQueue.size();
     }
     
-    /**
-     * Clear all queued tasks
-     */
     public void clearQueue() {
         taskQueue.clear();
         LoggerUtils.info("Cleared tick budget task queue");

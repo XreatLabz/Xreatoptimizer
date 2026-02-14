@@ -2,7 +2,6 @@ package com.xreatlabs.xreatoptimizer.config;
 
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
-import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
@@ -14,17 +13,13 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Per-world configuration manager
- * Allows different optimization settings for each world
- */
+/** Per-world configuration */
 public class WorldConfig {
     
     private final XreatOptimizer plugin;
     private final File configFile;
     private FileConfiguration config;
     
-    // Cache for quick access
     private final Map<String, WorldSettings> worldSettings = new ConcurrentHashMap<>();
     private final Set<String> protectedChunks = ConcurrentHashMap.newKeySet();
     
@@ -34,9 +29,6 @@ public class WorldConfig {
         loadConfig();
     }
     
-    /**
-     * Load configuration from file
-     */
     public void loadConfig() {
         if (!configFile.exists()) {
             createDefaultConfig();
@@ -44,7 +36,6 @@ public class WorldConfig {
         
         config = YamlConfiguration.loadConfiguration(configFile);
         
-        // Load world settings
         ConfigurationSection worldsSection = config.getConfigurationSection("worlds");
         if (worldsSection != null) {
             for (String worldName : worldsSection.getKeys(false)) {
@@ -63,7 +54,6 @@ public class WorldConfig {
             }
         }
         
-        // Load protected chunks
         List<String> protectedList = config.getStringList("protected_chunks");
         protectedChunks.clear();
         protectedChunks.addAll(protectedList);
@@ -72,9 +62,6 @@ public class WorldConfig {
                         protectedChunks.size() + " protected chunks");
     }
     
-    /**
-     * Create default configuration file
-     */
     private void createDefaultConfig() {
         try {
             configFile.getParentFile().mkdirs();
@@ -82,7 +69,6 @@ public class WorldConfig {
             
             config = YamlConfiguration.loadConfiguration(configFile);
             
-            // Header comment
             config.options().header(
                 "XreatOptimizer Per-World Configuration\n" +
                 "Configure different optimization settings for each world.\n" +
@@ -91,7 +77,6 @@ public class WorldConfig {
                 "Format: world_name:chunk_x:chunk_z\n"
             );
             
-            // Default world settings template
             config.set("worlds.world.entity_limiter.enabled", false);
             config.set("worlds.world.entity_limiter.max_entities", 10000);
             config.set("worlds.world.hibernate.enabled", false);
@@ -113,12 +98,6 @@ public class WorldConfig {
             config.set("worlds.world_the_end.auto_clear.enabled", false);
             config.set("worlds.world_the_end.view_distance", -1);
             
-            // Protected chunks example
-            List<String> defaultProtected = Arrays.asList(
-                "# Add chunks that should never be unloaded/hibernated",
-                "# Format: world_name:chunk_x:chunk_z",
-                "# Example: world:0:0"
-            );
             config.set("protected_chunks", Collections.emptyList());
             
             saveConfig();
@@ -128,9 +107,6 @@ public class WorldConfig {
         }
     }
     
-    /**
-     * Save configuration to file
-     */
     public void saveConfig() {
         try {
             config.save(configFile);
@@ -139,23 +115,14 @@ public class WorldConfig {
         }
     }
     
-    /**
-     * Get settings for a specific world
-     */
     public WorldSettings getWorldSettings(String worldName) {
         return worldSettings.getOrDefault(worldName, new WorldSettings());
     }
     
-    /**
-     * Get settings for a specific world
-     */
     public WorldSettings getWorldSettings(World world) {
         return getWorldSettings(world.getName());
     }
     
-    /**
-     * Check if entity limiter is enabled for a world
-     */
     public boolean isEntityLimiterEnabled(String worldName) {
         WorldSettings settings = worldSettings.get(worldName);
         if (settings != null) {
@@ -164,9 +131,6 @@ public class WorldConfig {
         return plugin.getConfig().getBoolean("entity_limiter.enabled", false);
     }
     
-    /**
-     * Check if hibernate is enabled for a world
-     */
     public boolean isHibernateEnabled(String worldName) {
         WorldSettings settings = worldSettings.get(worldName);
         if (settings != null) {
@@ -175,9 +139,6 @@ public class WorldConfig {
         return plugin.getConfig().getBoolean("hibernate.enabled", false);
     }
     
-    /**
-     * Get max entities for a world
-     */
     public int getMaxEntities(String worldName) {
         WorldSettings settings = worldSettings.get(worldName);
         if (settings != null && settings.maxEntitiesPerWorld > 0) {
@@ -186,9 +147,6 @@ public class WorldConfig {
         return plugin.getConfig().getInt("entity_limiter.max_entities_per_world", 10000);
     }
     
-    /**
-     * Get hibernate radius for a world
-     */
     public int getHibernateRadius(String worldName) {
         WorldSettings settings = worldSettings.get(worldName);
         if (settings != null && settings.hibernateRadius > 0) {
@@ -197,25 +155,16 @@ public class WorldConfig {
         return plugin.getConfig().getInt("hibernate.radius", 64);
     }
     
-    /**
-     * Check if a chunk is protected
-     */
     public boolean isChunkProtected(Chunk chunk) {
         String key = chunk.getWorld().getName() + ":" + chunk.getX() + ":" + chunk.getZ();
         return protectedChunks.contains(key);
     }
     
-    /**
-     * Check if a chunk is protected by coordinates
-     */
     public boolean isChunkProtected(String worldName, int chunkX, int chunkZ) {
         String key = worldName + ":" + chunkX + ":" + chunkZ;
         return protectedChunks.contains(key);
     }
     
-    /**
-     * Add a protected chunk
-     */
     public void addProtectedChunk(String worldName, int chunkX, int chunkZ) {
         String key = worldName + ":" + chunkX + ":" + chunkZ;
         protectedChunks.add(key);
@@ -227,9 +176,6 @@ public class WorldConfig {
         LoggerUtils.info("Added protected chunk: " + key);
     }
     
-    /**
-     * Remove a protected chunk
-     */
     public void removeProtectedChunk(String worldName, int chunkX, int chunkZ) {
         String key = worldName + ":" + chunkX + ":" + chunkZ;
         protectedChunks.remove(key);
@@ -241,40 +187,28 @@ public class WorldConfig {
         LoggerUtils.info("Removed protected chunk: " + key);
     }
     
-    /**
-     * Get all protected chunks
-     */
     public Set<String> getProtectedChunks() {
         return Collections.unmodifiableSet(protectedChunks);
     }
     
-    /**
-     * Set world-specific setting
-     */
     public void setWorldSetting(String worldName, String setting, Object value) {
         String path = "worlds." + worldName + "." + setting;
         config.set(path, value);
         saveConfig();
-        loadConfig(); // Reload to update cache
+        loadConfig();
     }
     
-    /**
-     * Reload configuration
-     */
     public void reload() {
         loadConfig();
     }
     
-    /**
-     * World-specific settings container
-     */
     public static class WorldSettings {
         public boolean entityLimiterEnabled = false;
         public int maxEntitiesPerWorld = 10000;
         public boolean hibernateEnabled = false;
         public int hibernateRadius = 64;
         public boolean autoClearEnabled = false;
-        public int viewDistanceOverride = -1; // -1 means use global setting
+        public int viewDistanceOverride = -1;
         
         @Override
         public String toString() {

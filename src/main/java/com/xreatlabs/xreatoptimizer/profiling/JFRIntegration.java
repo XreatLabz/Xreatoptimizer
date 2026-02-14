@@ -14,20 +14,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Java Flight Recorder (JFR) Integration
- * Provides professional-grade profiling for performance analysis
- *
- * Features:
- * - Automatic JFR recording during lag spikes
- * - Custom JFR events for Minecraft operations
- * - Low-overhead continuous profiling
- * - Export recordings for analysis with JDK Mission Control
- *
- * Requirements: Java 11+
- *
- * @since 1.2.0
- */
+/** JFR profiling integration */
 public class JFRIntegration {
 
     private final XreatOptimizer plugin;
@@ -37,8 +24,7 @@ public class JFRIntegration {
     private volatile boolean isEnabled = false;
     private volatile boolean isRecordingLagSpike = false;
 
-    // Configuration
-    private final long MAX_RECORDING_SIZE = 100 * 1024 * 1024; // 100 MB
+    private final long MAX_RECORDING_SIZE = 100 * 1024 * 1024;
     private final Duration MAX_RECORDING_AGE = Duration.ofHours(1);
     private final Duration LAG_SPIKE_RECORDING_DURATION = Duration.ofSeconds(30);
 
@@ -47,9 +33,6 @@ public class JFRIntegration {
         this.recordingsDir = Paths.get(plugin.getDataFolder().getAbsolutePath(), "jfr-recordings");
     }
 
-    /**
-     * Start JFR integration
-     */
     public void start() {
         if (!isJFRAvailable()) {
             LoggerUtils.info("JFR is not available (requires Java 11+). Profiling disabled.");
@@ -81,9 +64,6 @@ public class JFRIntegration {
         }
     }
 
-    /**
-     * Stop JFR integration
-     */
     public void stop() {
         if (!isEnabled) return;
 
@@ -108,9 +88,6 @@ public class JFRIntegration {
         }
     }
 
-    /**
-     * Start continuous low-overhead recording
-     */
     private void startContinuousRecording() throws Exception {
         Configuration config = Configuration.getConfiguration("profile");
 
@@ -131,9 +108,6 @@ public class JFRIntegration {
         LoggerUtils.info("Started continuous JFR recording");
     }
 
-    /**
-     * Trigger lag spike recording
-     */
     public void recordLagSpike(double tickTimeMs, String cause) {
         if (!isEnabled || isRecordingLagSpike) return;
 
@@ -187,9 +161,6 @@ public class JFRIntegration {
         }
     }
 
-    /**
-     * Stop and save a recording
-     */
     private void stopRecording(Recording recording, String name) throws IOException {
         if (recording == null || recording.getState() != RecordingState.RUNNING) {
             return;
@@ -202,17 +173,11 @@ public class JFRIntegration {
         LoggerUtils.info("JFR recording saved: " + outputPath);
     }
 
-    /**
-     * Register custom JFR events
-     */
     private void registerCustomEvents() {
         // Custom events are registered automatically via @Name annotation
         LoggerUtils.debug("Registered custom JFR events");
     }
 
-    /**
-     * Check if JFR is available
-     */
     private boolean isJFRAvailable() {
         try {
             Class.forName("jdk.jfr.Recording");
@@ -222,9 +187,6 @@ public class JFRIntegration {
         }
     }
 
-    /**
-     * Get recording statistics
-     */
     public Map<String, Object> getStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("enabled", isEnabled);
@@ -254,9 +216,6 @@ public class JFRIntegration {
 
     // Custom JFR Events
 
-    /**
-     * Lag spike event
-     */
     @Name("com.xreatlabs.xreatoptimizer.LagSpike")
     @Label("Lag Spike")
     @Description("Detected lag spike in server tick")
@@ -270,9 +229,6 @@ public class JFRIntegration {
         public String cause;
     }
 
-    /**
-     * Optimization event
-     */
     @Name("com.xreatlabs.xreatoptimizer.Optimization")
     @Label("Optimization")
     @Description("Optimization cycle executed")
@@ -292,9 +248,6 @@ public class JFRIntegration {
         public double tpsAfter;
     }
 
-    /**
-     * Entity optimization event
-     */
     @Name("com.xreatlabs.xreatoptimizer.EntityOptimization")
     @Label("Entity Optimization")
     @Description("Entity optimization executed")
@@ -311,9 +264,6 @@ public class JFRIntegration {
         public int entitiesRemoved;
     }
 
-    /**
-     * Memory optimization event
-     */
     @Name("com.xreatlabs.xreatoptimizer.MemoryOptimization")
     @Label("Memory Optimization")
     @Description("Memory optimization executed")

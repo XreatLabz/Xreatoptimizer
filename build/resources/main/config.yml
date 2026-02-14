@@ -1,10 +1,10 @@
 # XreatOptimizer Configuration
-# Do not modify branding settings - these are hardcoded
 
 general:
   auto_mode: true
   initial_profile: AUTO
-  broadcast_interval_minutes: 30
+  # Silent mode - plugin runs without console spam (only errors shown)
+  quiet_mode: true
 
 optimization:
   tps_thresholds:
@@ -125,12 +125,28 @@ notifications:
   enabled: false
   # Your Discord webhook URL (right-click channel > Integrations > Webhooks)
   discord_webhook: ""
-  # What events to notify about
+
+  # Event notifications
   notify_on_lag_spike: true
   notify_on_memory_pressure: true
   notify_on_low_tps: true
   notify_on_start: false
   notify_on_profile_change: false
+
+  # Customizable thresholds
+  lag_spike_threshold_ms: 100.0      # Minimum ms/tick to trigger notification
+  memory_threshold_percent: 80.0     # Minimum memory % to trigger notification
+  tps_threshold: 15.0                # Maximum TPS to trigger notification
+
+  # Scheduled reports
+  daily_report:
+    enabled: false
+    hour: 0  # Hour of day (0-23) to send report
+
+  weekly_report:
+    enabled: false
+    day: "MONDAY"  # Day of week (MONDAY, TUESDAY, etc.)
+    hour: 0        # Hour of day (0-23) to send report
 
 # ============================================================================
 # WEB DASHBOARD - Real-time performance monitoring
@@ -142,6 +158,57 @@ web_dashboard:
   port: 8080
   # Bind address (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
   bind_address: "0.0.0.0"
+  # Authentication token - set this to restrict dashboard access
+  # Access via ?token=YOUR_TOKEN or Authorization: Bearer YOUR_TOKEN header
+  # Leave empty to disable authentication (NOT recommended for public servers)
+  auth_token: ""
+  # CORS allowed origin (leave empty to block cross-origin requests)
+  cors_origin: ""
+
+# ============================================================================
+# PROMETHEUS METRICS - Export metrics for monitoring
+# ============================================================================
+# Export server metrics in Prometheus format for monitoring with Grafana
+# Metrics include: TPS, memory usage, entity counts, chunk counts, lag spikes, etc.
+# Access metrics at http://bind_address:port/metrics
+metrics:
+  prometheus:
+    enabled: false
+    # Port to expose metrics on (default: 9090)
+    port: 9090
+    # Bind address (127.0.0.1 = localhost only, 0.0.0.0 = all interfaces)
+    # SECURITY: Use 127.0.0.1 unless you have firewall protection
+    bind_address: "127.0.0.1"
+
+# ============================================================================
+# PREDICTIVE OPTIMIZATION - Proactive lag prevention
+# ============================================================================
+# Uses time-series forecasting to predict performance issues 30-60 seconds ahead
+# Automatically switches optimization profiles before lag spikes occur
+predictive_optimization:
+  enabled: true
+  # Minimum seconds between proactive profile switches
+  switch_cooldown_seconds: 60
+
+# ============================================================================
+# ANOMALY DETECTION - Real-time issue detection
+# ============================================================================
+# Detects unusual patterns: memory leaks, entity explosions, chunk thrashing, etc.
+anomaly_detection:
+  enabled: true
+  # Minimum severity to trigger notifications (0.0 to 1.0)
+  notification_threshold: 0.5
+
+# ============================================================================
+# JFR PROFILING - Java Flight Recorder integration
+# ============================================================================
+# Professional-grade profiling for performance analysis (requires Java 11+)
+# Automatically records detailed performance data during lag spikes
+# Recordings saved to plugins/XreatOptimizer/jfr-recordings/
+jfr:
+  enabled: false
+  # Enable continuous low-overhead recording
+  continuous_recording: true
 
 # ============================================================================
 # DEBUG - Debugging options

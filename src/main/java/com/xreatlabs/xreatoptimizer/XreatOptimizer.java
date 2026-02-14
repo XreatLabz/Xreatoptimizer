@@ -15,15 +15,11 @@ import com.xreatlabs.xreatoptimizer.notifications.NotificationManager;
 import com.xreatlabs.xreatoptimizer.metrics.Metrics;
 import com.xreatlabs.xreatoptimizer.web.WebDashboard;
 import com.xreatlabs.xreatoptimizer.version.VersionAdapter;
-import com.xreatlabs.xreatoptimizer.ai.AutoTuningEngine;
+import com.xreatlabs.xreatoptimizer.core.AdaptiveThresholdManager;
 import com.xreatlabs.xreatoptimizer.api.XreatOptimizerAPI;
-// import org.incendo.libby.BukkitLibraryManager; // Commented out due to dependency issues
+import com.xreatlabs.xreatoptimizer.Constants;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/**
- * Main class for XreatOptimizer - Advanced Minecraft Server Performance Engine
- * Compatible with Minecraft 1.8 through 1.21.10
- */
 public class XreatOptimizer extends JavaPlugin {
 
     private static XreatOptimizer instance;
@@ -31,15 +27,13 @@ public class XreatOptimizer extends JavaPlugin {
     private VersionAdapter versionAdapter;
     private OptimizationManager optimizationManager;
     private ThreadPoolManager threadPoolManager;
-    private AnnouncementSystem announcementSystem;
     private PerformanceMonitor performanceMonitor;
-    private AutoTuningEngine autoTuningEngine;
+    private AdaptiveThresholdManager adaptiveThresholdManager;
     private AdvancedEntityOptimizer advancedEntityOptimizer;
     private SmartTickDistributor smartTickDistributor;
     private NetworkOptimizer networkOptimizer;
     private AdvancedCPURAMOptimizer advancedCPURAMOptimizer;
     private EntityCullingManager entityCullingManager;
-    private SelfProtectionManager selfProtectionManager;
     private EmptyServerOptimizer emptyServerOptimizer;
     private PredictiveChunkLoader predictiveChunkLoader;
     private RedstoneHopperOptimizer redstoneHopperOptimizer;
@@ -60,8 +54,8 @@ public class XreatOptimizer extends JavaPlugin {
     private Metrics metrics;
     private WebDashboard webDashboard;
     private com.xreatlabs.xreatoptimizer.metrics.PrometheusExporter prometheusExporter;
-    private com.xreatlabs.xreatoptimizer.ai.PredictiveEngine predictiveEngine;
-    private com.xreatlabs.xreatoptimizer.ai.AnomalyDetector anomalyDetector;
+    private com.xreatlabs.xreatoptimizer.core.PerformanceTrendAnalyzer trendAnalyzer;
+    private com.xreatlabs.xreatoptimizer.core.AlertManager alertManager;
     private com.xreatlabs.xreatoptimizer.profiling.JFRIntegration jfrIntegration;
 
     @Override
@@ -75,10 +69,6 @@ public class XreatOptimizer extends JavaPlugin {
         // Display startup banner
         getLogger().info(Constants.STARTUP_BANNER);
 
-        // Initialize self protection manager first
-        selfProtectionManager = new SelfProtectionManager(this);
-        selfProtectionManager.runInitialSecurityChecks();
-        
         // Initialize version adapter
         versionAdapter = new VersionAdapter(this);
         getLogger().info("Detected server version: " + versionAdapter.getServerVersion());
@@ -91,7 +81,6 @@ public class XreatOptimizer extends JavaPlugin {
         
         // Initialize other managers
         optimizationManager = new OptimizationManager(this);
-        announcementSystem = new AnnouncementSystem(this);
         
         // Initialize managers that depend on others
         hibernateManager = new HibernateManager(this);
@@ -116,12 +105,12 @@ public class XreatOptimizer extends JavaPlugin {
         tickBudgetManager = new TickBudgetManager(this);
         pathfindingCache = new PathfindingCache(this);
         
-        // Initialize AI auto-tuning engine
-        autoTuningEngine = new AutoTuningEngine(this);
+        // Initialize adaptive threshold manager
+        adaptiveThresholdManager = new AdaptiveThresholdManager(this);
 
-        // Initialize predictive engine and anomaly detector
-        predictiveEngine = new com.xreatlabs.xreatoptimizer.ai.PredictiveEngine(this);
-        anomalyDetector = new com.xreatlabs.xreatoptimizer.ai.AnomalyDetector(this);
+        // Initialize trend analyzer and alert manager
+        trendAnalyzer = new com.xreatlabs.xreatoptimizer.core.PerformanceTrendAnalyzer(this);
+        alertManager = new com.xreatlabs.xreatoptimizer.core.AlertManager(this);
 
         // Initialize JFR integration
         jfrIntegration = new com.xreatlabs.xreatoptimizer.profiling.JFRIntegration(this);
@@ -165,7 +154,6 @@ public class XreatOptimizer extends JavaPlugin {
 
         // Start all systems
         optimizationManager.start();
-        announcementSystem.start();
         performanceMonitor.start();
         advancedEntityOptimizer.start();
         smartTickDistributor.start();
@@ -182,11 +170,9 @@ public class XreatOptimizer extends JavaPlugin {
         tickBudgetManager.start();
         pathfindingCache.start();
         
-        autoTuningEngine.start();
-
-        // Start predictive engine and anomaly detector
-        predictiveEngine.start();
-        anomalyDetector.start();
+        adaptiveThresholdManager.start();
+        trendAnalyzer.start();
+        alertManager.start();
 
         // Start JFR integration
         if (jfrIntegration != null) {
@@ -202,16 +188,16 @@ public class XreatOptimizer extends JavaPlugin {
         }
 
         // Start web dashboard
-        if (webDashboard != null) {
+        if (webDashboard != null && getConfig().getBoolean("web_dashboard.enabled", false)) {
             webDashboard.start();
         }
-        
+
         // Send startup notification
-        if (notificationManager != null) {
+        if (notificationManager != null && getConfig().getBoolean("notifications.enabled", false)) {
             notificationManager.notifyServerStart();
         }
-        
-        getLogger().info("XreatOptimizer has been enabled!");
+
+        getLogger().info("XreatOptimizer enabled.");
     }
 
 
@@ -228,21 +214,17 @@ public class XreatOptimizer extends JavaPlugin {
         if (performanceMonitor != null) {
             performanceMonitor.stop();
         }
-        
-        if (announcementSystem != null) {
-            announcementSystem.stop();
-        }
-        
-        if (autoTuningEngine != null) {
-            autoTuningEngine.stop();
+
+        if (adaptiveThresholdManager != null) {
+            adaptiveThresholdManager.stop();
         }
 
-        if (predictiveEngine != null) {
-            predictiveEngine.stop();
+        if (trendAnalyzer != null) {
+            trendAnalyzer.stop();
         }
 
-        if (anomalyDetector != null) {
-            anomalyDetector.stop();
+        if (alertManager != null) {
+            alertManager.stop();
         }
 
         if (jfrIntegration != null) {
@@ -327,7 +309,7 @@ public class XreatOptimizer extends JavaPlugin {
         //     libbyManager.shutdown();
         // }
 
-        getLogger().info("XreatOptimizer has been disabled!");
+        getLogger().info("XreatOptimizer disabled.");
     }
 
     // Getters
@@ -345,10 +327,6 @@ public class XreatOptimizer extends JavaPlugin {
 
     public ThreadPoolManager getThreadPoolManager() {
         return threadPoolManager;
-    }
-
-    public AnnouncementSystem getAnnouncementSystem() {
-        return announcementSystem;
     }
 
     public PerformanceMonitor getPerformanceMonitor() {
@@ -395,10 +373,6 @@ public class XreatOptimizer extends JavaPlugin {
         return entityCullingManager;
     }
 
-    public SelfProtectionManager getSelfProtectionManager() {
-        return selfProtectionManager;
-    }
-
     public EmptyServerOptimizer getEmptyServerOptimizer() {
         return emptyServerOptimizer;
     }
@@ -431,8 +405,8 @@ public class XreatOptimizer extends JavaPlugin {
         return configReloader;
     }
 
-    public AutoTuningEngine getAutoTuningEngine() {
-        return autoTuningEngine;
+    public AdaptiveThresholdManager getAdaptiveThresholdManager() {
+        return adaptiveThresholdManager;
     }
 
     public ItemDropTracker getItemDropTracker() {
@@ -459,12 +433,12 @@ public class XreatOptimizer extends JavaPlugin {
         return prometheusExporter;
     }
 
-    public com.xreatlabs.xreatoptimizer.ai.PredictiveEngine getPredictiveEngine() {
-        return predictiveEngine;
+    public com.xreatlabs.xreatoptimizer.core.PerformanceTrendAnalyzer getTrendAnalyzer() {
+        return trendAnalyzer;
     }
 
-    public com.xreatlabs.xreatoptimizer.ai.AnomalyDetector getAnomalyDetector() {
-        return anomalyDetector;
+    public com.xreatlabs.xreatoptimizer.core.AlertManager getAlertManager() {
+        return alertManager;
     }
 
     public com.xreatlabs.xreatoptimizer.profiling.JFRIntegration getJFRIntegration() {
@@ -475,14 +449,11 @@ public class XreatOptimizer extends JavaPlugin {
         return startTime;
     }
 
-    /**
-     * Register PlaceholderAPI expansion if available
-     */
     private void registerPlaceholderExpansion() {
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             try {
                 new com.xreatlabs.xreatoptimizer.hooks.XreatPlaceholderExpansion(this).register();
-                getLogger().info("PlaceholderAPI expansion registered successfully!");
+                getLogger().info("PlaceholderAPI expansion registered.");
             } catch (Exception e) {
                 getLogger().warning("Failed to register PlaceholderAPI expansion: " + e.getMessage());
             }

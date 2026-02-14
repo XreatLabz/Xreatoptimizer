@@ -14,9 +14,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Dynamically adjusts view distance based on server performance
- */
 public class DynamicViewDistance {
     private final XreatOptimizer plugin;
     private BukkitTask adjustmentTask;
@@ -24,7 +21,6 @@ public class DynamicViewDistance {
     private final Map<Player, Integer> playerViewDistances = new WeakHashMap<>();
     private volatile boolean isRunning = false;
     
-    // Store world view distances
     private final Map<String, Integer> worldViewDistances = new ConcurrentHashMap<>();
     
     public DynamicViewDistance(XreatOptimizer plugin) {
@@ -130,11 +126,9 @@ public class DynamicViewDistance {
      * Checks if a world should have its view distance adjusted
      */
     private boolean shouldAdjustWorld(World world) {
-        // Don't adjust view distance for worlds that are specifically configured not to change
-        // In a real implementation, you might have world-specific configuration
-        
-        return !world.getName().toLowerCase().contains("minigame") || 
-               !world.getName().toLowerCase().contains("event"); // Example exclusion
+        // Don't adjust view distance for minigame or event worlds
+        return !world.getName().toLowerCase().contains("minigame") &&
+               !world.getName().toLowerCase().contains("event");
     }
     
     /**
@@ -193,9 +187,7 @@ public class DynamicViewDistance {
      * Gets the maximum view distance allowed by the server
      */
     private int getServerMaxViewDistance() {
-        // Default to 16, but this should be configurable based on server type
-        // In a real implementation, you'd detect server type and get appropriate limits
-        return 16; // Standard max
+        return 16;
     }
     
     /**

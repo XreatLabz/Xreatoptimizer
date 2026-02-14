@@ -14,10 +14,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Tab completer for XreatOptimizer commands
- * Provides intelligent autocomplete suggestions
- */
+/** Tab completer for commands */
 public class OptimizeTabCompleter implements TabCompleter {
     
     private final XreatOptimizer plugin;

@@ -11,16 +11,6 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-/**
- * Automatic Lag Spike Detector and Mitigation System
- * 
- * Features:
- * - Real-time lag spike detection
- * - Automatic mitigation strategies
- * - Historical lag analysis
- * - Predictive lag prevention
- * - Emergency optimization triggers
- */
 public class LagSpikeDetector {
     
     private final XreatOptimizer plugin;
@@ -29,19 +19,15 @@ public class LagSpikeDetector {
     private BukkitTask monitorTask;
     private volatile boolean isRunning = false;
     
-    // Configuration
-    private final int HISTORY_SIZE = 600; // 30 seconds at 20 TPS
-    private final double LAG_SPIKE_THRESHOLD = 100.0; // ms per tick
-    private final double SEVERE_LAG_THRESHOLD = 200.0; // ms per tick
-    private final int CONSECUTIVE_LAG_THRESHOLD = 3; // ticks
+    private final int HISTORY_SIZE = 600;
+    private final double LAG_SPIKE_THRESHOLD = 100.0;
+    private final double SEVERE_LAG_THRESHOLD = 200.0;
+    private final int CONSECUTIVE_LAG_THRESHOLD = 3;
     
     private long lastTickTime = System.nanoTime();
     private int consecutiveLagTicks = 0;
     private boolean inLagSpike = false;
     
-    /**
-     * Stores tick timing data
-     */
     private static class TickData {
         final long timestamp;
         final double tickTime; // milliseconds
@@ -56,9 +42,6 @@ public class LagSpikeDetector {
         }
     }
     
-    /**
-     * Represents a detected lag spike
-     */
     private static class LagSpike {
         final long startTime;
         long endTime;
@@ -89,9 +72,6 @@ public class LagSpikeDetector {
         this.plugin = plugin;
     }
     
-    /**
-     * Start the lag spike detector
-     */
     public void start() {
         if (!plugin.getConfig().getBoolean("lag_spike_detection.enabled", true)) {
             LoggerUtils.info("Lag spike detector is disabled in config.");
@@ -112,9 +92,6 @@ public class LagSpikeDetector {
         LoggerUtils.info("Lag spike detector started - monitoring for performance issues");
     }
     
-    /**
-     * Stop the lag spike detector
-     */
     public void stop() {
         isRunning = false;
         
@@ -128,9 +105,6 @@ public class LagSpikeDetector {
         LoggerUtils.info("Lag spike detector stopped");
     }
     
-    /**
-     * Monitor each tick for lag spikes
-     */
     private void monitorTick() {
         if (!isRunning) return;
         
@@ -174,9 +148,6 @@ public class LagSpikeDetector {
         }
     }
     
-    /**
-     * Handle lag spike detection
-     */
     private void onLagSpikeDetected(double tickTime) {
         inLagSpike = true;
 
@@ -212,9 +183,6 @@ public class LagSpikeDetector {
         }
     }
     
-    /**
-     * Handle lag spike end
-     */
     private void onLagSpikeEnded() {
         inLagSpike = false;
         
@@ -238,9 +206,6 @@ public class LagSpikeDetector {
         }
     }
     
-    /**
-     * Analyze potential cause of lag spike
-     */
     private String analyzeCause(double tickTime) {
         // Check memory pressure
         Runtime runtime = Runtime.getRuntime();
@@ -277,9 +242,6 @@ public class LagSpikeDetector {
         return "Unknown (possibly chunk generation or plugin)";
     }
     
-    /**
-     * Mitigate normal lag spike
-     */
     private void mitigateNormalLag(LagSpike spike) {
         spike.mitigated = true;
         
@@ -292,13 +254,7 @@ public class LagSpikeDetector {
         });
     }
     
-    /**
-     * Mitigate severe lag spike
-     * 
-     * IMPORTANT: This method no longer removes dropped items as that was
-     * causing players to lose their items unexpectedly. Instead, we only
-     * suggest garbage collection and log the event.
-     */
+    /** Mitigate severe lag spike (safe operations only) */
     private void mitigateSevereLag(LagSpike spike) {
         spike.mitigated = true;
         
@@ -329,10 +285,7 @@ public class LagSpikeDetector {
         });
     }
     
-    /**
-     * Send Discord webhook notification for lag spike.
-     * Uses HttpURLConnection for Java 8+ compatibility.
-     */
+    /** Send Discord webhook for lag spike */
     private void sendDiscordNotification(String webhookUrl, LagSpike spike) {
         try {
             String json = String.format(
@@ -365,9 +318,6 @@ public class LagSpikeDetector {
         }
     }
     
-    /**
-     * Get lag spike statistics
-     */
     public Map<String, Object> getStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("total_spikes", detectedSpikes.size());
@@ -390,17 +340,11 @@ public class LagSpikeDetector {
         return stats;
     }
     
-    /**
-     * Get recent lag spikes
-     */
     public List<LagSpike> getRecentSpikes(int count) {
         int size = Math.min(count, detectedSpikes.size());
         return detectedSpikes.subList(Math.max(0, detectedSpikes.size() - size), detectedSpikes.size());
     }
     
-    /**
-     * Check if currently in a lag spike
-     */
     public boolean isInLagSpike() {
         return inLagSpike;
     }

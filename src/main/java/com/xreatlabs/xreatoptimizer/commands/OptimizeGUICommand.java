@@ -12,9 +12,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.Material;
 import org.bukkit.inventory.meta.ItemMeta;
 
-/**
- * Command executor for opening a GUI interface for XreatOptimizer
- */
+/** GUI command executor */
 public class OptimizeGUICommand implements CommandExecutor {
     private final XreatOptimizer plugin;
     

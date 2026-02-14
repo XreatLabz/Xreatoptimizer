@@ -14,9 +14,7 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 
-/**
- * Main command executor for XreatOptimizer
- */
+/** Main command executor */
 public class OptimizeCommand implements CommandExecutor {
     private final XreatOptimizer plugin;
     
@@ -252,9 +250,6 @@ public class OptimizeCommand implements CommandExecutor {
         plugin.reloadConfig();
         sender.sendMessage(ChatColor.GREEN + "Configuration reloaded!");
         
-        // Note: Branding messages remain unchanged (as per requirements)
-        sender.sendMessage(ChatColor.YELLOW + "Note: Branding messages are hardcoded and cannot be modified.");
-        
         return true;
     }
     
@@ -266,8 +261,7 @@ public class OptimizeCommand implements CommandExecutor {
         
         // Generate a manual report by creating a new one
         sender.sendMessage(ChatColor.GREEN + "Generating performance report...");
-        
-        // In a real implementation, this would trigger a report generation
+
         File reportsDir = new File(plugin.getDataFolder(), "reports");
         if (!reportsDir.exists()) {
             reportsDir.mkdirs();

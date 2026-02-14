@@ -8,16 +8,8 @@ import org.bukkit.entity.EntityType;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Utility class for entity-related operations.
- * Compatible with Minecraft 1.8 - 1.21.10
- */
 public class EntityUtils {
     
-    /**
-     * Counts entities by type in all worlds
-     * @return Map of entity type to count
-     */
     public static Map<EntityType, Integer> countEntities() {
         Map<EntityType, Integer> entityCounts = new HashMap<>();
         
@@ -31,11 +23,6 @@ public class EntityUtils {
         return entityCounts;
     }
     
-    /**
-     * Counts entities by type in a specific world
-     * @param world The world to count entities in
-     * @return Map of entity type to count
-     */
     public static Map<EntityType, Integer> countEntitiesInWorld(World world) {
         Map<EntityType, Integer> entityCounts = new HashMap<>();
         
@@ -47,10 +34,6 @@ public class EntityUtils {
         return entityCounts;
     }
     
-    /**
-     * Gets the total number of entities across all worlds
-     * @return Total entity count
-     */
     public static int getTotalEntityCount() {
         try {
             if (Bukkit.isPrimaryThread()) {
@@ -67,11 +50,6 @@ public class EntityUtils {
         }
     }
     
-    /**
-     * Gets the count of specific entity types
-     * @param types The entity types to count
-     * @return Map of type to count
-     */
     public static Map<EntityType, Integer> getCountsForTypes(EntityType... types) {
         Map<EntityType, Integer> counts = new HashMap<>();
         Map<EntityType, Integer> allCounts = countEntities();
@@ -83,19 +61,8 @@ public class EntityUtils {
         return counts;
     }
     
-    /**
-     * Removes entities of specific types that exceed a count threshold
-     * 
-     * IMPORTANT: This method has multiple safety checks to prevent removing
-     * entities that would affect player gameplay.
-     * 
-     * @param world The world to process
-     * @param type The entity type to check
-     * @param maxCount Maximum allowed count
-     * @return Number of entities removed
-     */
+    /** Remove excess entities of type (protected entities skipped) */
     public static int removeExcessEntities(World world, EntityType type, int maxCount) {
-        // Safety: Never allow removal of protected entity types
         if (ProtectedEntities.isProtectedType(type)) {
             return 0;
         }
@@ -103,14 +70,12 @@ public class EntityUtils {
         int removed = 0;
         int currentCount = 0;
         
-        // First, count current entities of the specified type (excluding protected ones)
         for (Entity entity : world.getEntities()) {
             if (entity.getType() == type && !ProtectedEntities.isProtected(entity)) {
                 currentCount++;
             }
         }
         
-        // If count exceeds max, remove excess
         if (currentCount > maxCount) {
             int toRemove = currentCount - maxCount;
             
@@ -128,13 +93,6 @@ public class EntityUtils {
         return removed;
     }
     
-    /**
-     * Checks if a world has excessive entities of a type
-     * @param world The world to check
-     * @param type The entity type to check
-     * @param threshold The threshold to check against
-     * @return True if entity count exceeds threshold
-     */
     public static boolean hasExcessiveEntities(World world, EntityType type, int threshold) {
         int count = 0;
         for (Entity entity : world.getEntities()) {

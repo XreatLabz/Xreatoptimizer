@@ -18,13 +18,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 
-/**
- * BStats-compatible metrics for XreatOptimizer
- * Collects anonymous usage statistics to help improve the plugin
- * 
- * All data is anonymous and used only for understanding how the plugin is used.
- * No personal information, server IPs, or player data is collected.
- */
+/** BStats-compatible metrics */
 public class Metrics {
     
     private final XreatOptimizer plugin;
@@ -32,8 +26,8 @@ public class Metrics {
     private final String serverUUID;
     private final ScheduledExecutorService scheduler;
     
-    // BStats service ID (you would register at bstats.org to get one)
-    private static final int BSTATS_PLUGIN_ID = 00000; // Replace with actual ID
+    // BStats service ID
+    private static final int BSTATS_PLUGIN_ID = 00000;
     private static final String BSTATS_URL = "https://bStats.org/api/v2/data/bukkit";
     
     public Metrics(XreatOptimizer plugin) {
@@ -68,9 +62,6 @@ public class Metrics {
         }
     }
     
-    /**
-     * Start submitting metrics data
-     */
     private void startSubmitting() {
         if (scheduler == null) return;
         
@@ -78,9 +69,6 @@ public class Metrics {
         scheduler.scheduleAtFixedRate(this::submitData, 5, 30, TimeUnit.MINUTES);
     }
     
-    /**
-     * Submit metrics data to bStats
-     */
     private void submitData() {
         if (!enabled) return;
         
@@ -95,9 +83,6 @@ public class Metrics {
         }
     }
     
-    /**
-     * Collect all metrics data
-     */
     private Map<String, Object> collectData() {
         Map<String, Object> data = new LinkedHashMap<>();
         
@@ -165,9 +150,6 @@ public class Metrics {
         return data;
     }
     
-    /**
-     * Detect server type (Paper, Spigot, etc.)
-     */
     private String detectServerType() {
         String version = Bukkit.getVersion().toLowerCase();
         if (version.contains("purpur")) return "Purpur";
@@ -179,9 +161,6 @@ public class Metrics {
         return "Unknown";
     }
     
-    /**
-     * Create a simple pie chart data structure
-     */
     private Map<String, Object> createSimplePie(String value) {
         Map<String, Object> chart = new LinkedHashMap<>();
         chart.put("chartId", "simple_pie");
@@ -189,9 +168,6 @@ public class Metrics {
         return chart;
     }
     
-    /**
-     * Create an advanced pie chart data structure
-     */
     private Map<String, Object> createAdvancedPie(Map<String, Integer> values) {
         Map<String, Object> chart = new LinkedHashMap<>();
         chart.put("chartId", "advanced_pie");
@@ -199,9 +175,6 @@ public class Metrics {
         return chart;
     }
     
-    /**
-     * Convert map to JSON string
-     */
     private String mapToJson(Map<String, Object> map) {
         StringBuilder json = new StringBuilder("{");
         boolean first = true;
@@ -228,9 +201,6 @@ public class Metrics {
         return json.toString();
     }
     
-    /**
-     * Send data to bStats
-     */
     private void sendData(String json) throws Exception {
         if (BSTATS_PLUGIN_ID == 0) {
             // Plugin ID not configured, skip sending
@@ -259,9 +229,6 @@ public class Metrics {
         connection.getInputStream().close();
     }
     
-    /**
-     * Compress data with GZIP
-     */
     private byte[] compress(String data) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
@@ -270,9 +237,6 @@ public class Metrics {
         return baos.toByteArray();
     }
     
-    /**
-     * Shutdown the metrics service
-     */
     public void shutdown() {
         if (scheduler != null) {
             scheduler.shutdown();

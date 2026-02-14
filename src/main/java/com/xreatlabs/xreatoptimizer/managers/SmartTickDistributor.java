@@ -7,23 +7,18 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/**
- * Distributes heavy tick tasks across multiple ticks to avoid spikes
- */
+/** Distributes tasks across ticks */
 public class SmartTickDistributor {
     private final XreatOptimizer plugin;
     private final Queue<Runnable> taskQueue = new ConcurrentLinkedQueue<>();
     private volatile boolean isRunning = false;
-    private int tasksPerTick = 5; // Default number of tasks to execute per tick
+    private int tasksPerTick = 5;
     
     public SmartTickDistributor(XreatOptimizer plugin) {
         this.plugin = plugin;
         this.tasksPerTick = plugin.getConfig().getInt("smart_tick.tasks_per_tick", 5);
     }
     
-    /**
-     * Starts the smart tick distributor
-     */
     public void start() {
         new BukkitRunnable() {
             @Override
@@ -33,7 +28,6 @@ public class SmartTickDistributor {
                     return;
                 }
                 
-                // Execute a limited number of tasks per tick to avoid spikes
                 for (int i = 0; i < tasksPerTick && !taskQueue.isEmpty(); i++) {
                     Runnable task = taskQueue.poll();
                     if (task != null) {
@@ -45,45 +39,30 @@ public class SmartTickDistributor {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 1L, 1L); // Run every tick
+        }.runTaskTimer(plugin, 1L, 1L);
         
         isRunning = true;
         LoggerUtils.info("Smart tick distributor started (" + tasksPerTick + " tasks per tick).");
     }
     
-    /**
-     * Adds a task to be distributed across ticks
-     */
     public void addTask(Runnable task) {
         taskQueue.add(task);
     }
     
-    /**
-     * Adds multiple tasks to be distributed
-     */
     public void addTasks(Iterable<Runnable> tasks) {
         for (Runnable task : tasks) {
             addTask(task);
         }
     }
     
-    /**
-     * Gets the number of queued tasks
-     */
     public int getQueuedTaskCount() {
         return taskQueue.size();
     }
     
-    /**
-     * Checks if the distributor is running
-     */
     public boolean isRunning() {
         return isRunning;
     }
     
-    /**
-     * Stops the smart tick distributor
-     */
     public void stop() {
         isRunning = false;
         taskQueue.clear();
