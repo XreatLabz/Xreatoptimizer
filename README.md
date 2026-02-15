@@ -564,7 +564,7 @@ A: XreatOptimizer is designed for Bukkit-based servers. Modded servers (Forge, F
 A: The plugin only removes dropped items after 10 minutes (with warnings). It never touches player inventories, chests, or containers. See [SAFETY_GUIDE.md](SAFETY_GUIDE.md) for details.
 
 **Q: Can I disable the branding messages?**
-A: No. Branding messages are hardcoded and cannot be disabled or modified.
+A: Yes. The Branding messages are Removed.
 
 ### Performance Questions
 
