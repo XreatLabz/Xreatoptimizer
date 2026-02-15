@@ -8,3 +8,5 @@ The project is currently under limited maintenance. Within the next 2–3 months
 Development activity may be slower as our team is currently focused on academic and real-life commitments.
 
 Transparency and community review are welcomed.
+
+We remove Branding messages and etc. 
