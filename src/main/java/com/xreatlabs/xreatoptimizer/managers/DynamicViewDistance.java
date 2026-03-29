@@ -19,180 +19,172 @@ public class DynamicViewDistance {
     private BukkitTask adjustmentTask;
     private final Map<String, Integer> originalViewDistances = new ConcurrentHashMap<>();
     private final Map<Player, Integer> playerViewDistances = new WeakHashMap<>();
-    private volatile boolean isRunning = false;
-    
     private final Map<String, Integer> worldViewDistances = new ConcurrentHashMap<>();
-    
+    private volatile boolean isRunning = false;
+    private boolean enabled = true;
+    private int lightDistance = 10;
+    private int normalDistance = 8;
+    private int aggressiveDistance = 6;
+    private int emergencyDistance = 4;
+    private int minViewDistance = 4;
+    private int maxViewDistance = 12;
+
     public DynamicViewDistance(XreatOptimizer plugin) {
         this.plugin = plugin;
+        loadConfig();
     }
-    
-    /**
-     * Starts the dynamic view distance system
-     */
+
+    private void loadConfig() {
+        enabled = plugin.getConfig().getBoolean("dynamic_view_distance.enabled", true);
+        minViewDistance = Math.max(2, plugin.getConfig().getInt("dynamic_view_distance.min", 4));
+        maxViewDistance = Math.max(minViewDistance, plugin.getConfig().getInt("dynamic_view_distance.max", 12));
+
+        lightDistance = clamp(plugin.getConfig().getInt("dynamic_view_distance.light", 10));
+        normalDistance = clamp(plugin.getConfig().getInt("dynamic_view_distance.normal", 8));
+        aggressiveDistance = clamp(plugin.getConfig().getInt("dynamic_view_distance.aggressive", 6));
+        emergencyDistance = clamp(plugin.getConfig().getInt("dynamic_view_distance.emergency", 4));
+    }
+
+    /** Starts the dynamic view distance system. */
     public void start() {
-        // Store original view distances for restoration later
+        if (isRunning) {
+            return;
+        }
+
+        loadConfig();
+        if (!enabled) {
+            LoggerUtils.info("Dynamic view distance is disabled in config.");
+            return;
+        }
+
+        originalViewDistances.clear();
         for (World world : Bukkit.getWorlds()) {
             originalViewDistances.put(world.getName(), world.getViewDistance());
         }
-        
-        // Run view distance adjustments every 30 seconds
+
         adjustmentTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::adjustViewDistances,
-            600L,  // Initial delay (30 seconds)
-            600L   // Repeat interval (30 seconds)
+            600L,
+            600L
         );
-        
+
         isRunning = true;
         LoggerUtils.info("Dynamic view distance system started.");
     }
-    
-    /**
-     * Stops the dynamic view distance system
-     */
+
+    /** Stops the dynamic view distance system. */
     public void stop() {
         isRunning = false;
         if (adjustmentTask != null) {
             adjustmentTask.cancel();
+            adjustmentTask = null;
         }
-        
-        // Restore original view distances
+
         restoreOriginalViewDistances();
-        
+        worldViewDistances.clear();
+        playerViewDistances.clear();
+
         LoggerUtils.info("Dynamic view distance system stopped.");
     }
-    
-    /**
-     * Adjusts view distances based on current server performance
-     */
+
+    /** Adjusts view distances based on current server performance. */
     private void adjustViewDistances() {
-        if (!isRunning) return;
-        
+        if (!isRunning) {
+            return;
+        }
+
         double currentTPS = TPSUtils.getTPS();
         double memoryUsage = MemoryUtils.getMemoryUsagePercentage();
-        
-        // Get configuration thresholds
+
         double lightTPS = plugin.getConfig().getDouble("optimization.tps_thresholds.light", 19.5);
         double normalTPS = plugin.getConfig().getDouble("optimization.tps_thresholds.normal", 18.0);
         double aggressiveTPS = plugin.getConfig().getDouble("optimization.tps_thresholds.aggressive", 16.0);
-        
-        // Determine appropriate view distance based on performance
+
         int newViewDistance = determineViewDistance(currentTPS, memoryUsage, lightTPS, normalTPS, aggressiveTPS);
-        
-        // Apply new view distance to all worlds
+
         for (World world : Bukkit.getWorlds()) {
-            if (shouldAdjustWorld(world)) {
-                int currentDistance = world.getViewDistance();
-                
-                if (currentDistance != newViewDistance) {
-                    setWorldViewDistance(world, newViewDistance);
-                    worldViewDistances.put(world.getName(), newViewDistance);
-                    LoggerUtils.info("Adjusted view distance for world '" + world.getName() + 
-                                   "' from " + currentDistance + " to " + newViewDistance);
-                }
+            if (!shouldAdjustWorld(world)) {
+                continue;
+            }
+
+            int currentDistance = getCurrentViewDistance(world.getName());
+            if (currentDistance != newViewDistance) {
+                setWorldViewDistance(world, newViewDistance);
+                worldViewDistances.put(world.getName(), newViewDistance);
+                LoggerUtils.info("Adjusted view distance for world '" + world.getName() +
+                    "' from " + currentDistance + " to " + newViewDistance);
             }
         }
-        
-        // Also adjust player view distances if supported by server implementation
+
         adjustPlayerViewDistances(newViewDistance);
     }
-    
-    /**
-     * Determines the appropriate view distance based on server performance
-     */
-    private int determineViewDistance(double tps, double memoryUsage, 
-                                     double lightTPS, double normalTPS, double aggressiveTPS) {
-        // Get server's view distance limits
-        int maxViewDistance = getServerMaxViewDistance();
-        int minViewDistance = 2; // Minimum practical view distance
-        
+
+    private int determineViewDistance(double tps, double memoryUsage,
+                                      double lightTPS, double normalTPS, double aggressiveTPS) {
         if (tps > lightTPS && memoryUsage < 70) {
-            // Server is performing well, can expand view distance
-            return Math.min(maxViewDistance, 12); // Increase if possible, but don't exceed 12
-        } else if (tps > normalTPS) {
-            // Server is doing okay, maintain normal view distance
-            return Math.min(maxViewDistance, 8); // Standard distance
-        } else if (tps > aggressiveTPS) {
-            // Server is under moderate load, reduce view distance
-            return Math.min(maxViewDistance, 6); // Reduced distance
-        } else {
-            // Server is under heavy load, minimize view distance
-            return Math.max(minViewDistance, 4); // Minimal distance but keep gameplay functional
+            return lightDistance;
         }
+        if (tps > normalTPS) {
+            return normalDistance;
+        }
+        if (tps > aggressiveTPS) {
+            return aggressiveDistance;
+        }
+        return emergencyDistance;
     }
-    
-    /**
-     * Checks if a world should have its view distance adjusted
-     */
+
     private boolean shouldAdjustWorld(World world) {
-        // Don't adjust view distance for minigame or event worlds
-        return !world.getName().toLowerCase().contains("minigame") &&
-               !world.getName().toLowerCase().contains("event");
+        String name = world.getName().toLowerCase();
+        return !name.contains("minigame") && !name.contains("event");
     }
-    
-    /**
-     * Sets the view distance for a world using version-appropriate API.
-     */
-    private void setWorldViewDistance(World world, int viewDistance) {
+
+    /** Sets the view distance for a world using version-appropriate API. */
+    public void setWorldViewDistance(World world, int viewDistance) {
+        int clampedDistance = clamp(viewDistance);
+
         try {
-            // Spigot 1.14+ has World.setViewDistance(int)
             if (plugin.getVersionAdapter().isVersionAtLeast(1, 14)) {
-                world.getClass().getMethod("setViewDistance", int.class).invoke(world, viewDistance);
-                LoggerUtils.debug("Set view distance for world '" + world.getName() + "' to " + viewDistance);
+                world.getClass().getMethod("setViewDistance", int.class).invoke(world, clampedDistance);
+                LoggerUtils.debug("Set view distance for world '" + world.getName() + "' to " + clampedDistance);
                 return;
             }
         } catch (NoSuchMethodException e) {
-            // Method not available on this server implementation
+            // Method not available on this server implementation.
         } catch (Exception e) {
             LoggerUtils.debug("Could not set view distance via API for world '" + world.getName() + "': " + e.getMessage());
         }
-        
-        // Fallback: track intended change for next reload
-        LoggerUtils.debug("View distance change for '" + world.getName() + "' to " + viewDistance + " tracked (API unavailable)");
+
+        LoggerUtils.debug("View distance change for '" + world.getName() + "' to " + clampedDistance + " tracked (API unavailable)");
     }
-    
-    /**
-     * Attempts to adjust individual player view distances if supported
-     */
+
+    /** Attempts to adjust individual player view distances if supported. */
     private void adjustPlayerViewDistances(int targetDistance) {
-        // Some server implementations support per-player view distance
         for (Player player : Bukkit.getOnlinePlayers()) {
             try {
-                // Try Paper's per-player view distance API if available
                 setPlayerViewDistance(player, targetDistance);
             } catch (Exception e) {
-                // Fall back to logging if per-player view distance isn't supported
                 LoggerUtils.debug("Per-player view distance not supported, using world settings for " + player.getName());
             }
         }
     }
-    
-    /**
-     * Attempts to set a player's view distance using Paper API (1.14+).
-     */
+
+    /** Attempts to set a player's view distance using Paper API (1.14+). */
     private void setPlayerViewDistance(Player player, int distance) throws Exception {
-        if (!plugin.getVersionAdapter().isVersionAtLeast(1, 14)) return;
-        
+        if (!plugin.getVersionAdapter().isVersionAtLeast(1, 14)) {
+            return;
+        }
+
         try {
             Method setViewDistanceMethod = player.getClass().getMethod("setViewDistance", int.class);
-            setViewDistanceMethod.invoke(player, distance);
-            playerViewDistances.put(player, distance);
+            setViewDistanceMethod.invoke(player, clamp(distance));
+            playerViewDistances.put(player, clamp(distance));
         } catch (NoSuchMethodException e) {
-            // Per-player view distance not supported on this server
+            // Per-player view distance not supported on this server.
         }
     }
-    
-    /**
-     * Gets the maximum view distance allowed by the server
-     */
-    private int getServerMaxViewDistance() {
-        return 16;
-    }
-    
-    /**
-     * Restores original view distances for all worlds
-     */
+
+    /** Restores original view distances for all worlds. */
     private void restoreOriginalViewDistances() {
         for (World world : Bukkit.getWorlds()) {
             Integer originalDistance = originalViewDistances.get(world.getName());
@@ -201,44 +193,66 @@ public class DynamicViewDistance {
             }
         }
     }
-    
-    /**
-     * Gets the current effective view distance for a world
-     */
+
     public int getCurrentViewDistance(String worldName) {
         Integer customDistance = worldViewDistances.get(worldName);
         if (customDistance != null) {
             return customDistance;
         }
-        
+
         World world = Bukkit.getWorld(worldName);
-        return world != null ? world.getViewDistance() : 8; // Default
+        return world != null ? world.getViewDistance() : normalDistance;
     }
-    
-    /**
-     * Gets the current effective view distance for a player
-     */
+
     public int getCurrentPlayerViewDistance(Player player) {
         Integer customDistance = playerViewDistances.get(player);
         if (customDistance != null) {
             return customDistance;
         }
-        
-        // Fall back to world view distance
+
         return getCurrentViewDistance(player.getWorld().getName());
     }
-    
-    /**
-     * Checks if the dynamic view distance manager is running
-     */
+
     public boolean isRunning() {
         return isRunning;
     }
 
-    /**
-     * Reload configuration
-     */
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void applyProfileTarget(int viewDistance) {
+        if (!isRunning) {
+            return;
+        }
+
+        int clampedDistance = clamp(viewDistance);
+        for (World world : Bukkit.getWorlds()) {
+            if (!shouldAdjustWorld(world)) {
+                continue;
+            }
+            setWorldViewDistance(world, clampedDistance);
+            worldViewDistances.put(world.getName(), clampedDistance);
+        }
+
+        adjustPlayerViewDistances(clampedDistance);
+    }
+
+    /** Reload configuration. */
     public void reloadConfig() {
-        LoggerUtils.info("Dynamic view distance configuration reloaded");
+        boolean wasRunning = isRunning;
+        if (wasRunning) {
+            stop();
+        } else {
+            loadConfig();
+        }
+
+        if (plugin.getConfig().getBoolean("dynamic_view_distance.enabled", true)) {
+            start();
+        }
+    }
+
+    private int clamp(int value) {
+        return Math.max(minViewDistance, Math.min(maxViewDistance, value));
     }
 }

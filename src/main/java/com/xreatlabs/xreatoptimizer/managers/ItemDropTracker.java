@@ -22,7 +22,9 @@ public class ItemDropTracker {
     private final Map<UUID, Long> itemSpawnTimes = new ConcurrentHashMap<>();
     private BukkitTask checkTask;
     private BukkitTask countdownTask;
+    private BukkitTask cleanupTask;
     private volatile boolean isRunning = false;
+    private boolean enabled = false;
 
     private int itemLifetime = 600;
     private int warningTime = 10;
@@ -33,11 +35,26 @@ public class ItemDropTracker {
     }
 
     public void loadConfig() {
-        itemLifetime = plugin.getConfig().getInt("item_removal.lifetime_seconds", 600);
-        warningTime = plugin.getConfig().getInt("item_removal.warning_seconds", 10);
+        enabled = plugin.getConfig().getBoolean("item_removal.enabled", false);
+        itemLifetime = Math.max(0, plugin.getConfig().getInt("item_removal.lifetime_seconds", 600));
+        warningTime = Math.max(0, plugin.getConfig().getInt("item_removal.warning_seconds", 10));
+
+        if (warningTime > itemLifetime) {
+            warningTime = itemLifetime;
+        }
     }
 
     public void start() {
+        if (isRunning) {
+            return;
+        }
+
+        if (!enabled || itemLifetime <= 0) {
+            itemSpawnTimes.clear();
+            LoggerUtils.info("Item drop tracker is disabled in config. Skipping start.");
+            return;
+        }
+
         checkTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::checkAndRemoveExpiredItems,
@@ -52,7 +69,7 @@ public class ItemDropTracker {
             20L
         );
 
-        Bukkit.getScheduler().runTaskTimer(
+        cleanupTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::cleanupPickedUpItems,
             600L,
@@ -67,9 +84,15 @@ public class ItemDropTracker {
         isRunning = false;
         if (checkTask != null) {
             checkTask.cancel();
+            checkTask = null;
         }
         if (countdownTask != null) {
             countdownTask.cancel();
+            countdownTask = null;
+        }
+        if (cleanupTask != null) {
+            cleanupTask.cancel();
+            cleanupTask = null;
         }
         itemSpawnTimes.clear();
         LoggerUtils.info("Item drop tracker stopped.");
@@ -212,10 +235,12 @@ public class ItemDropTracker {
         return isRunning;
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
     public void reload() {
-        if (isRunning) {
-            stop();
-        }
+        stop();
         loadConfig();
         start();
     }

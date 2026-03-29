@@ -144,13 +144,14 @@ public class GUIClickListener implements Listener {
         Inventory hibernateGUI = org.bukkit.Bukkit.createInventory(null, 27,
             ChatColor.DARK_GREEN + "XreatOptimizer Hibernate");
 
-        boolean hibernateEnabled = plugin.getConfig().getBoolean("hibernate.enabled", true);
+        boolean hibernateEnabled = plugin.getConfig().getBoolean("hibernate.enabled", false);
         int radius = plugin.getConfig().getInt("hibernate.radius", 64);
 
         ItemStack statusItem = createItem(
             hibernateEnabled ? Material.EMERALD_BLOCK : Material.REDSTONE_BLOCK,
             ChatColor.GOLD + "Hibernate Status",
             "Currently: " + (hibernateEnabled ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED"),
+            "Mode: safe distant-chunk tracking",
             "Radius: " + radius + " blocks"
         );
         hibernateGUI.setItem(13, statusItem);

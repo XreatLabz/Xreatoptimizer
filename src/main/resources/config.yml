@@ -57,20 +57,15 @@ auto_clear:
   arrow_limit: 500
 
 # ============================================================================
-# HIBERNATE - Entity hibernation for distant chunks
+# HIBERNATE - Conservative distant-chunk tracking
 # ============================================================================
-# DISABLED BY DEFAULT - Hibernation can cause entity data loss!
-# 
-# When enabled, removes entities from chunks far from players and attempts
-# to restore them when players approach. This can cause:
-# - Armor stands to lose their equipment
-# - Named pets to be lost
-# - Farm animals to disappear
-# 
-# Only enable if you understand the risks and have backups!
+# DISABLED BY DEFAULT - intended for careful testing only
+#
+# In current safe mode this feature only marks distant chunks as low-priority.
+# It no longer removes and respawns entities.
 hibernate:
   radius: 64
-  enabled: false  # DISABLED by default - can cause data loss
+  enabled: false
 
 # ============================================================================
 # REDSTONE/HOPPER OPTIMIZATION
@@ -109,9 +104,38 @@ enable_stack_fusion: true
 compress_ram_cache: true
 auto_tune: true
 
+memory_saver:
+  enabled: true
+  max_chunks_per_cycle: 6
+  player_safety_radius_chunks: 8
+
+network_optimizer:
+  enabled: true
+
+smart_tick:
+  enabled: true
+  tasks_per_tick: 5
+
+dynamic_view_distance:
+  enabled: true
+  min: 4
+  max: 12
+  light: 10
+  normal: 8
+  aggressive: 6
+  emergency: 4
+
+predictive_loading:
+  enabled: false
+  prediction_distance: 5
+  min_velocity: 0.1
+  max_preloads_per_tick: 2
+
 # Item Drop Removal System
+# DISABLED BY DEFAULT - enable only if you want the plugin to delete ground items
 # Only affects dropped items, gives countdown warning before removal
 item_removal:
+  enabled: false
   # Time in seconds before items are removed (600 = 10 minutes)
   lifetime_seconds: 600
   # Time in seconds to show countdown warning before removal (10 = last 10 seconds)
@@ -209,6 +233,18 @@ jfr:
   enabled: false
   # Enable continuous low-overhead recording
   continuous_recording: true
+
+# ============================================================================
+# Additional safety toggles
+# ============================================================================
+lag_spike_detection:
+  enabled: true
+
+pathfinding_cache:
+  enabled: true
+
+tick_budget:
+  enabled: true
 
 # ============================================================================
 # DEBUG - Debugging options

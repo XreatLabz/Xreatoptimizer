@@ -21,19 +21,15 @@ public class OptimizeTabCompleter implements TabCompleter {
     
     // Main subcommands
     private static final List<String> MAIN_COMMANDS = Arrays.asList(
-        "stats", "boost", "pregen", "purge", "reload", "report", 
-        "clearcache", "profile", "world", "help", "version", "notify", "dashboard"
+        "stats", "boost", "pregen", "purge", "reload", "report",
+        "clearcache", "help", "dashboard"
     );
     
     // Admin-only commands
     private static final List<String> ADMIN_COMMANDS = Arrays.asList(
-        "boost", "pregen", "purge", "reload", "clearcache", "profile", "world", "notify", "dashboard"
+        "boost", "pregen", "purge", "reload", "clearcache", "dashboard"
     );
     
-    // Profile options
-    private static final List<String> PROFILES = Arrays.asList(
-        "AUTO", "LIGHT", "NORMAL", "AGGRESSIVE", "EMERGENCY"
-    );
     
     // Pregen speed presets
     private static final List<String> PREGEN_SPEEDS = Arrays.asList(
@@ -45,10 +41,6 @@ public class OptimizeTabCompleter implements TabCompleter {
         "5", "10", "25", "50", "100"
     );
     
-    // Notification subcommands
-    private static final List<String> NOTIFY_COMMANDS = Arrays.asList(
-        "test", "enable", "disable", "status"
-    );
     
     public OptimizeTabCompleter(XreatOptimizer plugin) {
         this.plugin = plugin;
@@ -67,7 +59,6 @@ public class OptimizeTabCompleter implements TabCompleter {
                 available.add("stats");
                 available.add("report");
                 available.add("help");
-                available.add("version");
             }
             
             // Add admin commands if player has permission
@@ -88,24 +79,6 @@ public class OptimizeTabCompleter implements TabCompleter {
                     StringUtil.copyPartialMatches(args[1], worldNames, completions);
                     break;
                     
-                case "profile":
-                    // Profile options
-                    StringUtil.copyPartialMatches(args[1], PROFILES, completions);
-                    break;
-                    
-                case "world":
-                    // World names for world-specific settings
-                    List<String> worlds = Bukkit.getWorlds().stream()
-                        .map(World::getName)
-                        .collect(Collectors.toList());
-                    StringUtil.copyPartialMatches(args[1], worlds, completions);
-                    break;
-                    
-                case "notify":
-                    // Notification subcommands
-                    StringUtil.copyPartialMatches(args[1], NOTIFY_COMMANDS, completions);
-                    break;
-                    
                 case "report":
                     // Report time periods
                     StringUtil.copyPartialMatches(args[1], 
@@ -121,11 +94,6 @@ public class OptimizeTabCompleter implements TabCompleter {
                     StringUtil.copyPartialMatches(args[2], PREGEN_RADII, completions);
                     break;
                     
-                case "world":
-                    // World setting options
-                    StringUtil.copyPartialMatches(args[2], 
-                        Arrays.asList("entity_limit", "hibernate", "view_distance"), completions);
-                    break;
             }
             
         } else if (args.length == 4) {
@@ -136,19 +104,6 @@ public class OptimizeTabCompleter implements TabCompleter {
                     StringUtil.copyPartialMatches(args[3], PREGEN_SPEEDS, completions);
                     break;
                     
-                case "world":
-                    // Values for world settings
-                    if (args[2].equalsIgnoreCase("hibernate")) {
-                        StringUtil.copyPartialMatches(args[3], 
-                            Arrays.asList("true", "false"), completions);
-                    } else if (args[2].equalsIgnoreCase("entity_limit")) {
-                        StringUtil.copyPartialMatches(args[3], 
-                            Arrays.asList("100", "200", "500", "1000"), completions);
-                    } else if (args[2].equalsIgnoreCase("view_distance")) {
-                        StringUtil.copyPartialMatches(args[3], 
-                            Arrays.asList("4", "6", "8", "10", "12"), completions);
-                    }
-                    break;
             }
         }
         

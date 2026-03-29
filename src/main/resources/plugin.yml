@@ -11,7 +11,7 @@ softdepend: [PlaceholderAPI]
 commands:
   xreatopt:
     description: Main command for XreatOptimizer
-    usage: /<command> [stats|boost|pregen|purge|reload|report|clearcache]
+    usage: /<command> [stats|boost|pregen|purge|reload|report|clearcache|dashboard|help]
     aliases: [xreat, xopt]
   xreatreport:
     description: Generate performance reports
@@ -25,7 +25,7 @@ commands:
 permissions:
   xreatopt.view:
     description: Allows viewing statistics
-    default: true
+    default: op
   xreatopt.admin:
     description: Allows access to admin commands
     default: op

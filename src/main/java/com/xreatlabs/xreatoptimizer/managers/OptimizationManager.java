@@ -215,17 +215,13 @@ public class OptimizationManager {
     
     private void propagateToSubsystems() {
         if (plugin.getHibernateManager() != null && plugin.getHibernateManager().isRunning()) {
-            plugin.getHibernateManager().setRadius(activeHibernateRadius);
+            plugin.getHibernateManager().setRuntimeRadius(activeHibernateRadius);
         }
-        
+
         if (plugin.getMemorySaver() != null) {
             plugin.getMemorySaver().setThreshold(activeMemoryThreshold);
         }
-        
-        if (plugin.getAdvancedEntityOptimizer() != null && !plugin.getAdvancedEntityOptimizer().isEnabled()) {
-            plugin.getAdvancedEntityOptimizer().setEnabled(true);
-        }
-        
+
         if (plugin.getEntityCullingManager() != null) {
             boolean shouldEnable = effectiveProfile == OptimizationProfile.AGGRESSIVE ||
                 effectiveProfile == OptimizationProfile.EMERGENCY;
@@ -233,34 +229,26 @@ public class OptimizationManager {
                 plugin.getEntityCullingManager().setEnabled(shouldEnable);
             }
         }
-        
+
         if (plugin.getDynamicViewDistance() != null && plugin.getDynamicViewDistance().isRunning()) {
             if (effectiveProfile == OptimizationProfile.EMERGENCY) {
-                for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
-                    try {
-                        world.getClass().getMethod("setViewDistance", int.class).invoke(world, 4);
-                    } catch (Exception ignored) {}
-                }
+                plugin.getDynamicViewDistance().applyProfileTarget(4);
             } else if (effectiveProfile == OptimizationProfile.AGGRESSIVE) {
-                for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
-                    try {
-                        world.getClass().getMethod("setViewDistance", int.class).invoke(world, 6);
-                    } catch (Exception ignored) {}
-                }
+                plugin.getDynamicViewDistance().applyProfileTarget(6);
             }
         }
-        
+
         if (plugin.getAdvancedCPURAMOptimizer() != null) {
             plugin.getAdvancedCPURAMOptimizer().setIntensity(effectiveProfile);
         }
-        
-        if (effectiveProfile == OptimizationProfile.EMERGENCY) {
-            if (TPSUtils.isTPSDangerous()) {
-                LoggerUtils.warn("TPS is in dangerous territory (< 10). Consider reducing load.");
+
+        if (effectiveProfile == OptimizationProfile.EMERGENCY && TPSUtils.isTPSDangerous()) {
+            LoggerUtils.warn("TPS is in dangerous territory (< 10). Consider reducing load.");
+            if (MemoryUtils.getMemoryUsagePercentage() >= 90.0) {
+                MemoryUtils.suggestGarbageCollection();
             }
-            MemoryUtils.suggestGarbageCollection();
         }
-        
+
         LoggerUtils.debug("Profile " + effectiveProfile + " applied: hibernate=" + activeHibernateRadius +
             " entities(P/H/I)=" + activeEntityPassiveLimit + "/" + activeEntityHostileLimit + "/" + activeEntityItemLimit +
             " memThresh=" + activeMemoryThreshold + "%");

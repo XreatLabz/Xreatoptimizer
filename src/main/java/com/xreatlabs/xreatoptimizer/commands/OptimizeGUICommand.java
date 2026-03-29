@@ -43,29 +43,37 @@ public class OptimizeGUICommand implements CommandExecutor {
     private void createAndOpenGUI(Player player) {
         // Create an inventory for the GUI
         Inventory gui = org.bukkit.Bukkit.createInventory(null, 27, ChatColor.DARK_GREEN + "XreatOptimizer Control Panel");
-        
-        // Add items to the GUI
-        ItemStack statsItem = createItem(Material.COMPASS, ChatColor.AQUA + "Server Statistics", 
-            "View TPS, Memory, and Performance Metrics");
+
+        String profile = plugin.getOptimizationManager() != null
+            ? plugin.getOptimizationManager().getCurrentProfile().name()
+            : "AUTO";
+        boolean itemRemoval = plugin.getItemDropTracker() != null && plugin.getItemDropTracker().isEnabled();
+        boolean dashboardEnabled = plugin.getConfig().getBoolean("web_dashboard.enabled", false);
+
+        ItemStack statsItem = createItem(Material.COMPASS, ChatColor.AQUA + "Server Statistics",
+            "View TPS, memory, entity, and chunk data");
         gui.setItem(2, statsItem);
-        
-        ItemStack optimizeItem = createItem(Material.REDSTONE, ChatColor.YELLOW + "Run Optimizations", 
-            "Trigger immediate optimization cycle");
+
+        ItemStack optimizeItem = createItem(Material.REDSTONE, ChatColor.YELLOW + "Run Optimizations",
+            "Trigger a safe manual optimization pass");
         gui.setItem(3, optimizeItem);
-        
-        ItemStack hibernateItem = createItem(Material.BARRIER, ChatColor.GOLD + "Hibernate Manager", 
-            "Manage entity hibernation settings");
+
+        ItemStack hibernateItem = createItem(Material.BARRIER, ChatColor.GOLD + "Hibernate Manager",
+            "Current mode: safe tracking only",
+            "Configured radius: " + plugin.getConfig().getInt("hibernate.radius", 64) + " blocks");
         gui.setItem(4, hibernateItem);
-        
-        ItemStack profileItem = createItem(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE + "Optimization Profile", 
-            "Change current optimization profile");
+
+        ItemStack profileItem = createItem(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE + "Optimization Profile",
+            "Current profile: " + profile,
+            "Use this to switch optimization behavior");
         gui.setItem(5, profileItem);
-        
-        ItemStack configItem = createItem(Material.CRAFTING_TABLE, ChatColor.WHITE + "Configuration", 
-            "Edit plugin configuration");
+
+        ItemStack configItem = createItem(Material.CRAFTING_TABLE, ChatColor.WHITE + "Configuration",
+            "Use /xreatopt reload after editing config.yml",
+            "Item cleanup: " + (itemRemoval ? ChatColor.YELLOW + "enabled" : ChatColor.GREEN + "disabled"),
+            "Dashboard: " + (dashboardEnabled ? ChatColor.YELLOW + "enabled" : ChatColor.GREEN + "disabled"));
         gui.setItem(6, configItem);
-        
-        // Add more items as needed for other features
+
         ItemStack closeItem = createItem(Material.BARRIER, ChatColor.RED + "Close", "Close this menu");
         gui.setItem(22, closeItem);
         

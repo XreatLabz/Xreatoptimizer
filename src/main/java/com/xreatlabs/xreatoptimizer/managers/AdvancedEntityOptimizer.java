@@ -2,6 +2,7 @@ package com.xreatlabs.xreatoptimizer.managers;
 
 import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
+import com.xreatlabs.xreatoptimizer.utils.ProtectedEntities;
 import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -15,205 +16,214 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AdvancedEntityOptimizer {
     private final XreatOptimizer plugin;
     private BukkitTask optimizationTask;
-    private final Map<UUID, EntityGroup> entityGroups = new ConcurrentHashMap<>();
     private final Set<UUID> throttledEntities = ConcurrentHashMap.newKeySet();
     private final Map<UUID, EntityImportance> entityImportanceCache = new ConcurrentHashMap<>();
     private volatile boolean isRunning = false;
+    private boolean stackFusionEnabled = true;
 
     private enum EntityImportance {
-        CRITICAL(1.0),
-        HIGH(0.75),
-        MEDIUM(0.5),
-        LOW(0.25);
-
-        final double priority;
-        EntityImportance(double priority) {
-            this.priority = priority;
-        }
-    }
-    
-    private static class EntityGroup {
-        final EntityType entityType;
-        final Location centerLocation;
-        final Set<UUID> memberEntityIds = ConcurrentHashMap.newKeySet();
-        int totalCount = 0;
-        long lastInteraction = System.currentTimeMillis();
-        
-        public EntityGroup(EntityType type, Location location) {
-            this.entityType = type;
-            this.centerLocation = location.clone();
-        }
-        
-        public boolean canAddToGroup(Entity entity) {
-            Location entityLoc = entity.getLocation();
-            if (!entityLoc.getWorld().equals(centerLocation.getWorld())) {
-                return false;
-            }
-            return entityLoc.distanceSquared(centerLocation) <= 25.0;
-        }
-        
-        public void addEntity(Entity entity) {
-            memberEntityIds.add(entity.getUniqueId());
-            if (entity instanceof Item) {
-                totalCount += ((Item) entity).getItemStack().getAmount();
-            } else {
-                totalCount++;
-            }
-            lastInteraction = System.currentTimeMillis();
-        }
-        
-        public void removeEntity(UUID entityId) {
-            memberEntityIds.remove(entityId);
-            if (memberEntityIds.isEmpty()) {
-                totalCount = 0;
-            }
-        }
+        CRITICAL,
+        HIGH,
+        MEDIUM,
+        LOW
     }
 
     public AdvancedEntityOptimizer(XreatOptimizer plugin) {
         this.plugin = plugin;
+        loadConfig();
     }
-    
+
+    private void loadConfig() {
+        stackFusionEnabled = plugin.getConfig().getBoolean("enable_stack_fusion", true);
+    }
+
     public void start() {
+        if (isRunning) {
+            return;
+        }
+
+        loadConfig();
         optimizationTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::runAdvancedOptimizations,
             200L,
             200L
         );
-        
+
         isRunning = true;
         LoggerUtils.info("Advanced entity optimizer started.");
     }
-    
+
     public void stop() {
         isRunning = false;
         if (optimizationTask != null) {
             optimizationTask.cancel();
-        }
-        
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntities()) {
-                if (throttledEntities.contains(entity.getUniqueId()) && entity instanceof LivingEntity) {
-                    try {
-                        ((LivingEntity) entity).setAI(true);
-                    } catch (Exception ignored) {}
-                }
-            }
+            optimizationTask = null;
         }
 
-        entityGroups.clear();
+        restoreAllAI();
         throttledEntities.clear();
         entityImportanceCache.clear();
 
         LoggerUtils.info("Advanced entity optimizer stopped.");
     }
-    
+
     public void setEnabled(boolean enabled) {
-        if (isRunning != enabled) {
-            isRunning = enabled;
-            LoggerUtils.info("Advanced entity optimizer " + (enabled ? "enabled" : "disabled"));
+        if (enabled == isRunning) {
+            return;
+        }
+
+        if (enabled) {
+            start();
+        } else {
+            stop();
         }
     }
-    
+
     public boolean isEnabled() {
         return isRunning;
     }
-    
+
     private void runAdvancedOptimizations() {
-        if (!isRunning) return;
-        
-        performEntityStackFusion();
-        applyTickThrottling();
-        cleanupOldGroups();
-    }
-    
-    private void performEntityStackFusion() {
-        if (!plugin.getConfig().getBoolean("enable_stack_fusion", true)) {
+        if (!isRunning) {
             return;
         }
-        
+
+        performEntityStackFusion();
+        applyTickThrottling();
+        cleanupImportanceCache();
+    }
+
+    private void performEntityStackFusion() {
+        if (!stackFusionEnabled) {
+            return;
+        }
+
         for (World world : Bukkit.getWorlds()) {
-            processWorldForStackFusion(world);
+            mergeWorldItems(world);
+            mergeWorldExperience(world);
         }
     }
-    
-    private void processWorldForStackFusion(World world) {
-        Map<EntityType, List<Entity>> entitiesByType = new HashMap<>();
-        
+
+    private void mergeWorldItems(World world) {
+        List<Item> items = new ArrayList<>();
         for (Entity entity : world.getEntities()) {
-            if (entity instanceof Player || entity.getCustomName() != null || hasPassengers(entity)) {
+            if (entity instanceof Item) {
+                Item item = (Item) entity;
+                if (item.getPickupDelay() > 0) {
+                    continue;
+                }
+                items.add(item);
+            }
+        }
+
+        Set<UUID> merged = new HashSet<>();
+        for (int i = 0; i < items.size(); i++) {
+            Item base = items.get(i);
+            if (!base.isValid() || merged.contains(base.getUniqueId())) {
                 continue;
             }
-            
-            if (isEntityTypeFusable(entity.getType())) {
-                entitiesByType.computeIfAbsent(entity.getType(), k -> new ArrayList<>()).add(entity);
+
+            for (int j = i + 1; j < items.size(); j++) {
+                Item candidate = items.get(j);
+                if (!candidate.isValid() || merged.contains(candidate.getUniqueId())) {
+                    continue;
+                }
+
+                if (!canMerge(base, candidate)) {
+                    continue;
+                }
+
+                int remaining = mergeIntoBase(base, candidate);
+                if (remaining <= 0) {
+                    merged.add(candidate.getUniqueId());
+                    candidate.remove();
+                }
             }
         }
-        
-        for (Map.Entry<EntityType, List<Entity>> entry : entitiesByType.entrySet()) {
-            List<Entity> entities = entry.getValue();
-            if (entities.size() <= 1) continue;
-            
-            groupNearbyEntities(entities);
-        }
     }
-    
-    private void groupNearbyEntities(List<Entity> entities) {
-        for (Entity entity : entities) {
-            UUID entityId = entity.getUniqueId();
-            
-            if (isEntityInGroup(entityId)) {
+
+    private void mergeWorldExperience(World world) {
+        List<ExperienceOrb> orbs = new ArrayList<>();
+        for (Entity entity : world.getEntities()) {
+            if (entity instanceof ExperienceOrb) {
+                orbs.add((ExperienceOrb) entity);
+            }
+        }
+
+        Set<UUID> merged = new HashSet<>();
+        for (int i = 0; i < orbs.size(); i++) {
+            ExperienceOrb base = orbs.get(i);
+            if (!base.isValid() || merged.contains(base.getUniqueId())) {
                 continue;
             }
-            
-            EntityGroup targetGroup = findSuitableGroup(entity);
-            
-            if (targetGroup == null) {
-                targetGroup = new EntityGroup(entity.getType(), entity.getLocation());
-                entityGroups.put(entityId, targetGroup);
-                targetGroup.addEntity(entity);
-            } else {
-                targetGroup.addEntity(entity);
+
+            for (int j = i + 1; j < orbs.size(); j++) {
+                ExperienceOrb candidate = orbs.get(j);
+                if (!candidate.isValid() || merged.contains(candidate.getUniqueId())) {
+                    continue;
+                }
+
+                if (!sameWorldAndNearby(base.getLocation(), candidate.getLocation(), 2.0)) {
+                    continue;
+                }
+
+                base.setExperience(Math.min(32767, base.getExperience() + candidate.getExperience()));
+                merged.add(candidate.getUniqueId());
+                candidate.remove();
             }
         }
     }
-    
-    private EntityGroup findSuitableGroup(Entity entity) {
-        for (EntityGroup group : entityGroups.values()) {
-            if (group.entityType == entity.getType() && group.canAddToGroup(entity)) {
-                return group;
-            }
+
+    private boolean canMerge(Item first, Item second) {
+        if (!sameWorldAndNearby(first.getLocation(), second.getLocation(), 2.25)) {
+            return false;
         }
-        
-        return null;
-    }
-    
-    private boolean isEntityInGroup(UUID entityId) {
-        return entityGroups.containsKey(entityId);
-    }
-    
-    /** Check if entity type can be fused */
-    private boolean isEntityTypeFusable(EntityType type) {
-        switch (type) {
-            case DROPPED_ITEM:
-            case EXPERIENCE_ORB:
-                return true;
-            default:
-                return false;
+
+        if (ProtectedEntities.isProtected(first) || ProtectedEntities.isProtected(second)) {
+            return false;
         }
+
+        if (first.getCustomName() != null || second.getCustomName() != null) {
+            return false;
+        }
+
+        return first.getItemStack().isSimilar(second.getItemStack());
     }
-    
+
+    private boolean sameWorldAndNearby(Location first, Location second, double maxDistanceSquared) {
+        return first.getWorld() != null && first.getWorld().equals(second.getWorld())
+            && first.distanceSquared(second) <= maxDistanceSquared;
+    }
+
+    private int mergeIntoBase(Item base, Item candidate) {
+        org.bukkit.inventory.ItemStack baseStack = base.getItemStack();
+        org.bukkit.inventory.ItemStack candidateStack = candidate.getItemStack();
+
+        int maxStack = baseStack.getMaxStackSize();
+        int transferable = Math.min(maxStack - baseStack.getAmount(), candidateStack.getAmount());
+        if (transferable <= 0) {
+            return candidateStack.getAmount();
+        }
+
+        baseStack.setAmount(baseStack.getAmount() + transferable);
+        candidateStack.setAmount(candidateStack.getAmount() - transferable);
+        base.setItemStack(baseStack);
+        candidate.setItemStack(candidateStack);
+        return candidateStack.getAmount();
+    }
+
     private void applyTickThrottling() {
         for (World world : Bukkit.getWorlds()) {
             applyTickThrottlingToWorld(world);
         }
     }
-    
-    /** Apply AI throttling to distant entities */
+
+    /** Apply AI throttling to distant entities. */
     private void applyTickThrottlingToWorld(World world) {
         List<Player> players = world.getPlayers();
         if (players.isEmpty()) {
+            restoreWorldAI(world);
             return;
         }
 
@@ -223,27 +233,24 @@ public class AdvancedEntityOptimizer {
         double farDistance = getDistanceTier("far", currentTPS);
 
         for (Entity entity : world.getEntities()) {
-            if (entity instanceof Player) continue;
-            if (!(entity instanceof LivingEntity)) continue;
+            if (!(entity instanceof LivingEntity) || entity instanceof Player) {
+                continue;
+            }
 
             LivingEntity living = (LivingEntity) entity;
             UUID entityId = entity.getUniqueId();
-
             EntityImportance importance = getEntityImportance(living);
 
             if (importance == EntityImportance.CRITICAL) {
-                if (throttledEntities.contains(entityId)) {
-                    try {
-                        living.setAI(true);
-                        throttledEntities.remove(entityId);
-                    } catch (Exception ignored) {}
-                }
+                restoreAI(living, entityId);
                 continue;
             }
 
             double closestDistanceSq = Double.MAX_VALUE;
             for (Player player : players) {
-                if (!player.getWorld().equals(entity.getWorld())) continue;
+                if (!player.getWorld().equals(entity.getWorld())) {
+                    continue;
+                }
                 double distSq = entity.getLocation().distanceSquared(player.getLocation());
                 if (distSq < closestDistanceSq) {
                     closestDistanceSq = distSq;
@@ -257,21 +264,16 @@ public class AdvancedEntityOptimizer {
                 try {
                     living.setAI(false);
                     throttledEntities.add(entityId);
-                } catch (Exception e) {
+                } catch (Exception ignored) {
                 }
             } else if (!shouldThrottle && isThrottled) {
-                try {
-                    living.setAI(true);
-                    throttledEntities.remove(entityId);
-                } catch (Exception e) {
-                    throttledEntities.remove(entityId);
-                }
+                restoreAI(living, entityId);
             }
         }
     }
 
     private boolean shouldThrottleEntity(double distanceSq, EntityImportance importance,
-                                        double nearDist, double mediumDist, double farDist) {
+                                         double nearDist, double mediumDist, double farDist) {
         double nearDistSq = nearDist * nearDist;
         double mediumDistSq = mediumDist * mediumDist;
         double farDistSq = farDist * farDist;
@@ -288,7 +290,7 @@ public class AdvancedEntityOptimizer {
         }
     }
 
-    /** Get distance tier adjusted for current TPS */
+    /** Get distance tier adjusted for current TPS. */
     private double getDistanceTier(String tier, double tps) {
         double multiplier = 1.0;
 
@@ -314,9 +316,9 @@ public class AdvancedEntityOptimizer {
 
     private EntityImportance getEntityImportance(LivingEntity entity) {
         UUID entityId = entity.getUniqueId();
-
-        if (entityImportanceCache.containsKey(entityId)) {
-            return entityImportanceCache.get(entityId);
+        EntityImportance cached = entityImportanceCache.get(entityId);
+        if (cached != null) {
+            return cached;
         }
 
         EntityImportance importance = classifyEntityImportance(entity);
@@ -325,7 +327,7 @@ public class AdvancedEntityOptimizer {
     }
 
     private EntityImportance classifyEntityImportance(LivingEntity entity) {
-        if (entity.getCustomName() != null) {
+        if (entity.getCustomName() != null || ProtectedEntities.isProtected(entity)) {
             return EntityImportance.CRITICAL;
         }
 
@@ -334,8 +336,7 @@ public class AdvancedEntityOptimizer {
         }
 
         EntityType type = entity.getType();
-
-        if (type == EntityType.ENDER_DRAGON || type == EntityType.WITHER) {
+        if (type == EntityType.ENDER_DRAGON || type == EntityType.WITHER || "WARDEN".equals(type.name())) {
             return EntityImportance.CRITICAL;
         }
 
@@ -353,47 +354,51 @@ public class AdvancedEntityOptimizer {
 
         return EntityImportance.MEDIUM;
     }
-    
-    private void cleanupOldGroups() {
-        long now = System.currentTimeMillis();
-        Iterator<Map.Entry<UUID, EntityGroup>> iter = entityGroups.entrySet().iterator();
-        
-        while (iter.hasNext()) {
-            Map.Entry<UUID, EntityGroup> entry = iter.next();
-            EntityGroup group = entry.getValue();
-            
-            if (now - group.lastInteraction > 300000) {
-                iter.remove();
+
+    private void cleanupImportanceCache() {
+        entityImportanceCache.entrySet().removeIf(entry -> Bukkit.getEntity(entry.getKey()) == null);
+    }
+
+    private void restoreAllAI() {
+        for (World world : Bukkit.getWorlds()) {
+            restoreWorldAI(world);
+        }
+    }
+
+    private void restoreWorldAI(World world) {
+        for (Entity entity : world.getEntities()) {
+            if (entity instanceof LivingEntity) {
+                restoreAI((LivingEntity) entity, entity.getUniqueId());
             }
         }
     }
-    
+
+    private void restoreAI(LivingEntity living, UUID entityId) {
+        if (!throttledEntities.contains(entityId)) {
+            return;
+        }
+
+        try {
+            living.setAI(true);
+        } catch (Exception ignored) {
+        }
+        throttledEntities.remove(entityId);
+    }
+
     public boolean isRunning() {
         return isRunning;
     }
-    
+
     public int getGroupCount() {
-        return entityGroups.size();
+        return 0;
     }
-    
+
     public int getThrottledEntityCount() {
         return throttledEntities.size();
     }
 
     public void setStackFusionEnabled(boolean enabled) {
+        this.stackFusionEnabled = enabled;
         LoggerUtils.info("Stack fusion " + (enabled ? "enabled" : "disabled"));
-    }
-    
-    private boolean hasPassengers(Entity entity) {
-        try {
-            return !entity.getPassengers().isEmpty();
-        } catch (NoSuchMethodError e) {
-            try {
-                Object passenger = entity.getClass().getMethod("getPassenger").invoke(entity);
-                return passenger != null;
-            } catch (Exception ex) {
-                return false;
-            }
-        }
     }
 }

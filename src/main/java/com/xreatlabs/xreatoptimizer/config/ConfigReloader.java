@@ -14,7 +14,6 @@ public class ConfigReloader {
 
     public void reloadConfiguration() {
         plugin.getLogger().info("Reloading configuration...");
-
         plugin.reloadConfig();
 
         if (plugin.getOptimizationManager() != null) {
@@ -22,10 +21,10 @@ public class ConfigReloader {
         }
 
         if (plugin.getHibernateManager() != null) {
-            boolean hibernateEnabled = plugin.getConfig().getBoolean("hibernate.enabled", true);
+            boolean hibernateEnabled = plugin.getConfig().getBoolean("hibernate.enabled", false);
             int radius = plugin.getConfig().getInt("hibernate.radius", 64);
-            plugin.getHibernateManager().setEnabled(hibernateEnabled);
             plugin.getHibernateManager().setRadius(radius);
+            plugin.getHibernateManager().setEnabled(hibernateEnabled);
         }
 
         if (plugin.getEmptyServerOptimizer() != null) {
@@ -34,6 +33,10 @@ public class ConfigReloader {
 
         if (plugin.getAutoClearTask() != null) {
             plugin.getAutoClearTask().reloadConfig();
+        }
+
+        if (plugin.getItemDropTracker() != null) {
+            plugin.getItemDropTracker().reload();
         }
 
         if (plugin.getChunkPreGenerator() != null) {
@@ -53,13 +56,27 @@ public class ConfigReloader {
         }
 
         if (plugin.getMemorySaver() != null) {
-            boolean compressCache = plugin.getConfig().getBoolean("compress_ram_cache", true);
-            int threshold = plugin.getConfig().getInt("memory_reclaim_threshold_percent", 80);
-            plugin.getMemorySaver().setCompressionEnabled(compressCache);
-            plugin.getMemorySaver().setThreshold(threshold);
+            plugin.getMemorySaver().reloadConfig();
+        }
+
+        if (plugin.getNetworkOptimizer() != null) {
+            plugin.getNetworkOptimizer().reloadConfig();
+        }
+
+        if (plugin.getSmartTickDistributor() != null) {
+            plugin.getSmartTickDistributor().reloadConfig();
+        }
+
+        if (plugin.getPredictiveChunkLoader() != null) {
+            plugin.getPredictiveChunkLoader().stop();
+            plugin.getPredictiveChunkLoader().start();
         }
 
         plugin.getLogger().info(ChatColor.GREEN + "Configuration reloaded successfully.");
+        plugin.getLogger().info("Feature summary: item_removal=" + plugin.getConfig().getBoolean("item_removal.enabled", false)
+            + ", predictive_loading=" + plugin.getConfig().getBoolean("predictive_loading.enabled", false)
+            + ", dashboard=" + plugin.getConfig().getBoolean("web_dashboard.enabled", false)
+            + ", hibernate=" + plugin.getConfig().getBoolean("hibernate.enabled", false));
     }
 
     public boolean validateConfig() {
@@ -92,6 +109,13 @@ public class ConfigReloader {
         int delay = plugin.getConfig().getInt("empty_server.delay_seconds", 30);
         if (delay < 5 || delay > 600) {
             plugin.getLogger().warning("Empty server delay should be between 5 and 600 seconds!");
+            valid = false;
+        }
+
+        int minView = plugin.getConfig().getInt("dynamic_view_distance.min", 4);
+        int maxView = plugin.getConfig().getInt("dynamic_view_distance.max", 12);
+        if (minView < 2 || maxView < minView) {
+            plugin.getLogger().warning("Dynamic view distance config is invalid: max must be >= min and min must be >= 2.");
             valid = false;
         }
 
