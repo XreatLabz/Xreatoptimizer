@@ -108,6 +108,31 @@ metrics:
 - If you enable the web dashboard publicly, set an auth token first.
 - If you already run other cleanup or optimization plugins, test the combination on a staging server before production.
 
+## Web dashboard
+
+If enabled, the dashboard serves:
+
+- `/` - dashboard page
+- `/api/stats` - current TPS, memory, entity, chunk, player, and profile data
+- `/api/history` - recent/hourly/daily historical data (`?range=recent|hourly|daily`)
+- `/api/config` - current feature flags and thresholds
+- `/api/system` - server, world, and plugin overview
+- `/api/logs` - dashboard log feed
+
+### Authentication
+
+If `web_dashboard.auth_token` is set, access requires either:
+- `?token=YOUR_TOKEN`
+- `Authorization: Bearer YOUR_TOKEN`
+
+### Bind address note
+
+If the dashboard fails with `Cannot assign requested address`, the configured `web_dashboard.bind_address` is not available on that machine.
+
+Use one of these in `config.yml`:
+- `127.0.0.1` for local-only access
+- `0.0.0.0` to listen on all interfaces
+
 ## Summary
 
 XreatOptimizer is best suited for server owners who want:

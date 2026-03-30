@@ -182,7 +182,10 @@ notifications:
 # ============================================================================
 # WEB DASHBOARD - Real-time performance monitoring
 # ============================================================================
-# Access the dashboard at http://your-server-ip:8080
+# Dashboard page:  http://bind_address:port/
+# API endpoints:   /api/stats, /api/history, /api/config, /api/system, /api/logs
+# IMPORTANT: bind_address must be an IP/address that exists on this machine.
+# If you see 'Cannot assign requested address', use 127.0.0.1 or 0.0.0.0.
 web_dashboard:
   enabled: false
   # Port to run the web server on
