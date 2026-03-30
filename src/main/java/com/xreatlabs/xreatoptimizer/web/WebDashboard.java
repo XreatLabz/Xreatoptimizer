@@ -472,8 +472,8 @@ public class WebDashboard {
         sb.append("\"passive\":").append(plugin.getConfig().getInt("optimization.entity_limits.passive", 200)).append(",");
         sb.append("\"hostile\":").append(plugin.getConfig().getInt("optimization.entity_limits.hostile", 150)).append(",");
         sb.append("\"item\":").append(plugin.getConfig().getInt("optimization.entity_limits.item", 1000));
-        sb.append("}}");
-        return sb.toString();
+        sb.append("}};");
+        return sb.toString().replace("};", "}");
     }
 
     private String generateSystemJson() {
@@ -539,15 +539,55 @@ public class WebDashboard {
 
     private String generateDashboardHtml() {
         String version = plugin.getDescription().getVersion();
-        String serverName = Bukkit.getServer().getName();
-        int maxPlayers = Bukkit.getMaxPlayers();
-        return "<!doctype html><html><head><meta charset='utf-8'><title>XreatOptimizer Dashboard</title></head><body>" +
-            "<h1>XreatOptimizer Dashboard</h1>" +
-            "<p>Version: " + escapeJson(version) + "</p>" +
-            "<p>Server: " + escapeJson(serverName) + "</p>" +
-            "<p>Max players: " + maxPlayers + "</p>" +
-            "<p>Use the JSON endpoints for detailed stats.</p>" +
-            "</body></html>";
+        String serverName = escapeJson(Bukkit.getServer().getName());
+        return "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>" +
+            "<title>XreatOptimizer Dashboard</title>" +
+            "<style>" +
+            ":root{--bg:#0b1220;--panel:#121b2e;--muted:#8ea3c7;--text:#eef4ff;--line:#24324d;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--accent:#60a5fa;}" +
+            "*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#09101d,#0f172a);color:var(--text)}" +
+            ".wrap{max-width:1200px;margin:0 auto;padding:32px 20px 48px}.hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-bottom:24px}" +
+            ".title{font-size:34px;font-weight:800;letter-spacing:.2px}.subtitle{color:var(--muted);margin-top:8px}.pill{display:inline-block;padding:8px 12px;border:1px solid var(--line);background:rgba(96,165,250,.08);border-radius:999px;color:#cfe2ff;font-size:13px}" +
+            ".grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.card{background:rgba(18,27,46,.88);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.22)}" +
+            ".label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.value{font-size:32px;font-weight:800;margin-top:8px}.sub{margin-top:6px;color:var(--muted);font-size:13px}" +
+            ".good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}.section{margin-top:18px}.section-title{font-size:18px;font-weight:700;margin:0 0 12px}" +
+            ".panel-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}.history{min-height:320px}.chart{height:240px;display:flex;align-items:flex-end;gap:4px;padding-top:16px}.bar{flex:1;border-radius:6px 6px 0 0;background:linear-gradient(180deg,#60a5fa,#2563eb);opacity:.95;min-width:2px}" +
+            ".list{display:grid;gap:10px}.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)}.row:last-child{border-bottom:none}" +
+            ".mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.small{font-size:12px;color:var(--muted)}.footer{margin-top:18px;color:var(--muted);font-size:13px}" +
+            "@media(max-width:980px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.panel-grid{grid-template-columns:1fr}}@media(max-width:620px){.grid{grid-template-columns:1fr}.hero{flex-direction:column;align-items:flex-start}.title{font-size:28px}}" +
+            "</style></head><body>" +
+            "<div class='wrap'>" +
+            "<div class='hero'><div><div class='title'>XreatOptimizer Dashboard</div><div class='subtitle'>Live server performance, history, and feature visibility.</div></div><div class='pill'>Version " + escapeJson(version) + " • " + serverName + "</div></div>" +
+            "<div class='grid'>" +
+            "<div class='card'><div class='label'>TPS</div><div id='tps' class='value'>--</div><div id='tpsSub' class='sub'>Loading…</div></div>" +
+            "<div class='card'><div class='label'>Memory</div><div id='memory' class='value'>--</div><div id='memorySub' class='sub'>Loading…</div></div>" +
+            "<div class='card'><div class='label'>Entities</div><div id='entities' class='value'>--</div><div class='sub'>Current total across loaded worlds</div></div>" +
+            "<div class='card'><div class='label'>Chunks</div><div id='chunks' class='value'>--</div><div id='playersSub' class='sub'>Players: --</div></div>" +
+            "</div>" +
+            "<div class='panel-grid section'>" +
+            "<div class='card history'><h3 class='section-title'>Recent TPS history</h3><div id='chart' class='chart'></div><div class='small'>Bars show the most recent samples from /api/history.</div></div>" +
+            "<div class='card'><h3 class='section-title'>Current profile</h3><div id='profile' class='value'>--</div><div class='sub'>Active optimization profile</div><div class='section'><h3 class='section-title'>Endpoints</h3><div class='list small mono'><div>/api/stats</div><div>/api/history?range=recent</div><div>/api/config</div><div>/api/system</div><div>/api/logs</div></div></div></div>" +
+            "</div>" +
+            "<div class='panel-grid section'>" +
+            "<div class='card'><h3 class='section-title'>System overview</h3><div id='system' class='list small'>Loading…</div></div>" +
+            "<div class='card'><h3 class='section-title'>Feature flags</h3><div id='features' class='list small'>Loading…</div></div>" +
+            "</div>" +
+            "<div class='panel-grid section'>" +
+            "<div class='card'><h3 class='section-title'>Recent lag spikes</h3><div id='spikes' class='list small'>Loading…</div></div>" +
+            "<div class='card'><h3 class='section-title'>Latest logs</h3><div id='logs' class='list small'>Loading…</div></div>" +
+            "</div>" +
+            "<div class='footer'>This dashboard is read-only and built from the plugin's live monitoring data.</div>" +
+            "</div>" +
+            "<script>" +
+            "const qs=location.search||'';const auth=qs?qs:'';const withToken=u=>u+auth;" +
+            "const fmt=n=>new Intl.NumberFormat().format(n);const fmtTime=t=>new Date(t).toLocaleTimeString();" +
+            "function setStatus(el,v,good,warn){el.textContent=v;el.className='value '+(v>=good?'good':v>=warn?'warn':'bad')}" +
+            "async function loadStats(){const r=await fetch(withToken('/api/stats'));const d=await r.json();setStatus(document.getElementById('tps'),d.tps,19,15);document.getElementById('tpsSub').textContent='Profile '+d.profile;document.getElementById('memory').textContent=d.memory.toFixed(1)+'%';document.getElementById('memory').className='value '+(d.memory<70?'good':d.memory<85?'warn':'bad');document.getElementById('memorySub').textContent=fmt(d.memoryUsed)+' MB / '+fmt(d.memoryMax)+' MB';document.getElementById('entities').textContent=fmt(d.entities);document.getElementById('chunks').textContent=fmt(d.chunks);document.getElementById('playersSub').textContent='Players: '+fmt(d.players);document.getElementById('profile').textContent=d.profile;}" +
+            "async function loadHistory(){const r=await fetch(withToken('/api/history?range=recent'));const d=await r.json();const chart=document.getElementById('chart');chart.innerHTML='';const points=(d.history||[]).slice(-50);for(const p of points){const h=Math.max(8,Math.min(220,(p.tps/20)*220));const bar=document.createElement('div');bar.className='bar';bar.style.height=h+'px';bar.title='TPS '+p.tps.toFixed(2)+' @ '+fmtTime(p.t);chart.appendChild(bar);}const spikes=document.getElementById('spikes');spikes.innerHTML='';const recentSpikes=(d.lagSpikes||[]).slice(0,5);if(!recentSpikes.length){spikes.innerHTML='<div class=small>No recent lag spikes recorded.</div>';}else{for(const s of recentSpikes){const row=document.createElement('div');row.className='row';row.innerHTML='<div><strong>'+s.peak.toFixed(1)+'ms</strong><div class=small>'+s.cause+'</div></div><div class=small>'+fmtTime(s.t)+'</div>';spikes.appendChild(row);}}}" +
+            "async function loadConfig(){const r=await fetch(withToken('/api/config'));const d=await r.json();const f=document.getElementById('features');f.innerHTML='';for(const [k,v] of Object.entries(d.features||{})){const row=document.createElement('div');row.className='row';row.innerHTML='<div>'+k.replace(/_/g,' ')+'</div><div class='+(v?'good':'small')+'>'+(v?'enabled':'disabled')+'</div>';f.appendChild(row);}}" +
+            "async function loadSystem(){const r=await fetch(withToken('/api/system'));const d=await r.json();const el=document.getElementById('system');el.innerHTML='';const items=[['Java',d.java_version],['OS',d.os+' ('+d.os_arch+')'],['Processors',d.processors],['Server',d.server_name],['Bukkit',d.bukkit_version],['Max players',d.max_players]];for(const [k,v] of items){const row=document.createElement('div');row.className='row';row.innerHTML='<div>'+k+'</div><div>'+v+'</div>';el.appendChild(row);}}" +
+            "async function loadLogs(){const r=await fetch(withToken('/api/logs'));const d=await r.json();const el=document.getElementById('logs');el.innerHTML='';const logs=(d.logs||[]).slice(0,6);if(!logs.length){el.innerHTML='<div class=small>No dashboard logs available.</div>';return;}for(const l of logs){const row=document.createElement('div');row.className='row';row.innerHTML='<div><strong>'+l.level+'</strong><div class=small>'+l.msg+'</div></div><div class=small>'+fmtTime(l.t)+'</div>';el.appendChild(row);}}" +
+            "async function refresh(){try{await Promise.all([loadStats(),loadHistory(),loadConfig(),loadSystem(),loadLogs()]);}catch(e){console.error(e);}}refresh();setInterval(refresh,4000);" +
+            "</script></body></html>";
     }
 
     private String getQueryParam(String query, String key, String defaultValue) {
