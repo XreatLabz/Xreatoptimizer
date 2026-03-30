@@ -114,8 +114,10 @@ public class OptimizeCommand implements CommandExecutor {
 
         MessageUtils.sendStat(sender, "Tracked Hibernation Chunks", String.valueOf(plugin.getHibernateManager().getHibernatedChunkCount()));
         MessageUtils.sendStat(sender, "Cached Chunks", String.valueOf(plugin.getMemorySaver().getCachedChunkCount()));
+        MessageUtils.sendStat(sender, "Gameplay Safety", ChatColor.GREEN + "Safe defaults active");
         MessageUtils.sendStat(sender, "Item Cleanup", plugin.getItemDropTracker().isEnabled() ? ChatColor.YELLOW + "Enabled" : ChatColor.GREEN + "Disabled");
         MessageUtils.sendStat(sender, "Predictive Loading", plugin.getConfig().getBoolean("predictive_loading.enabled", false) ? ChatColor.YELLOW + "Enabled" : ChatColor.GREEN + "Disabled");
+        MessageUtils.sendStat(sender, "AI Throttling", plugin.getConfig().getBoolean("advanced_entity_optimizer.ai_throttling", false) ? ChatColor.YELLOW + "Enabled" : ChatColor.GREEN + "Disabled");
         MessageUtils.sendStat(sender, "Low-Power Mode", plugin.getEmptyServerOptimizer().isInEmptyMode() ? ChatColor.YELLOW + "Active" : ChatColor.GREEN + "Standby");
         MessageUtils.sendFooter(sender);
         return true;

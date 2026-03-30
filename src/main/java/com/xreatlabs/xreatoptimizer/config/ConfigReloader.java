@@ -59,6 +59,10 @@ public class ConfigReloader {
             plugin.getMemorySaver().reloadConfig();
         }
 
+        if (plugin.getWorldConfig() != null) {
+            plugin.getWorldConfig().reload();
+        }
+
         if (plugin.getNetworkOptimizer() != null) {
             plugin.getNetworkOptimizer().reloadConfig();
         }

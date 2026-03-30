@@ -103,7 +103,7 @@ public class PrometheusExporter {
             metricsRegistry.updateChunkCount(chunkCount);
 
             // Update player count
-            int playerCount = Bukkit.getOnlinePlayers().size();
+            int playerCount = plugin.getPerformanceMonitor().getCurrentPlayerCount();
             metricsRegistry.updatePlayerCount(playerCount);
 
             // Update thread pool metrics if available

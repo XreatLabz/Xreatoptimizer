@@ -10,7 +10,7 @@ XreatOptimizer is a good fit if you want:
 - lower resource usage when the server is empty
 - dynamic view distance under load
 - dropped item and XP merging
-- optional item cleanup, dashboard, and predictive loading
+- optional item cleanup, dashboard, predictive loading, and advanced safe-mode tuning
 
 ## Default behavior
 
@@ -32,11 +32,16 @@ The plugin is conservative by default.
 - redstone/hopper optimization
 - web dashboard
 - Prometheus metrics
+- AI throttling
+- automatic chunk unloading
 
 ## Important notes
 
 - `item_removal` is **off by default**. If enabled, it only removes dropped ground items after a warning period.
 - `hibernate` is **off by default** and currently works as safe distant-chunk tracking rather than removing and respawning entities.
+- AI throttling, predictive loading, and automatic chunk unloading are also off by default to avoid affecting mob behavior or remote contraptions.
+- The redstone/hopper system is monitoring-first and avoids changing sorter or farm behavior by default.
+- Auto clear only targets excess arrows when explicitly enabled.
 - The plugin is designed to help with stability and cleanup, not to replace every other optimization plugin on the server.
 
 ## Commands

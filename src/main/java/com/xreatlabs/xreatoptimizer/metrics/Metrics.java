@@ -92,7 +92,7 @@ public class Metrics {
         // Server data
         data.put("serverVersion", Bukkit.getVersion());
         data.put("bukkitVersion", Bukkit.getBukkitVersion());
-        data.put("playerCount", Bukkit.getOnlinePlayers().size());
+        data.put("playerCount", plugin.getPerformanceMonitor() != null ? plugin.getPerformanceMonitor().getCurrentPlayerCount() : 0);
         data.put("onlineMode", Bukkit.getOnlineMode() ? 1 : 0);
         data.put("javaVersion", System.getProperty("java.version"));
         

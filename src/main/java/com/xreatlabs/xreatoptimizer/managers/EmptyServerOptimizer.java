@@ -4,6 +4,7 @@ import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
 import com.xreatlabs.xreatoptimizer.utils.MemoryUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
@@ -34,8 +35,9 @@ public class EmptyServerOptimizer implements Listener {
     private int emptyOptimizationDelayTicks = 600;
     private int minViewDistance = 2;
     private int minSimulationDistance = 2;
-    private boolean freezeTime = true;
+    private boolean freezeTime = false;
     private boolean removeItems = false;
+    private boolean unloadFarChunks = false;
 
     public EmptyServerOptimizer(XreatOptimizer plugin) {
         this.plugin = plugin;
@@ -47,8 +49,9 @@ public class EmptyServerOptimizer implements Listener {
         emptyOptimizationDelayTicks = Math.max(5, plugin.getConfig().getInt("empty_server.delay_seconds", 30)) * 20;
         minViewDistance = Math.max(2, plugin.getConfig().getInt("empty_server.min_view_distance", 2));
         minSimulationDistance = Math.max(2, plugin.getConfig().getInt("empty_server.min_simulation_distance", 2));
-        freezeTime = plugin.getConfig().getBoolean("empty_server.freeze_time", true);
+        freezeTime = plugin.getConfig().getBoolean("empty_server.freeze_time", false);
         removeItems = plugin.getConfig().getBoolean("empty_server.remove_items", false);
+        unloadFarChunks = plugin.getConfig().getBoolean("empty_server.unload_far_chunks", false);
     }
 
     public void start() {
@@ -63,14 +66,7 @@ public class EmptyServerOptimizer implements Listener {
         }
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
-
-        monitorTask = Bukkit.getScheduler().runTaskTimer(
-            plugin,
-            this::checkServerStatus,
-            emptyCheckIntervalTicks,
-            emptyCheckIntervalTicks
-        );
-
+        monitorTask = Bukkit.getScheduler().runTaskTimer(plugin, this::checkServerStatus, emptyCheckIntervalTicks, emptyCheckIntervalTicks);
         LoggerUtils.info("Empty Server Optimizer started - will reduce RAM/CPU when no players are online");
     }
 
@@ -95,8 +91,7 @@ public class EmptyServerOptimizer implements Listener {
     }
 
     private void checkServerStatus() {
-        int playerCount = Bukkit.getOnlinePlayers().size();
-        boolean isEmpty = playerCount == 0;
+        boolean isEmpty = Bukkit.getOnlinePlayers().isEmpty();
 
         if (isEmpty && !serverIsEmpty) {
             serverIsEmpty = true;
@@ -137,7 +132,6 @@ public class EmptyServerOptimizer implements Listener {
         for (World world : Bukkit.getWorlds()) {
             try {
                 snapshotWorldState(world);
-
                 setWorldViewDistance(world, minViewDistance);
                 setWorldSimulationDistance(world, minSimulationDistance);
 
@@ -145,7 +139,9 @@ public class EmptyServerOptimizer implements Listener {
                     itemsRemoved += removeDroppedItems(world);
                 }
 
-                chunksUnloaded += unloadFarChunks(world);
+                if (unloadFarChunks) {
+                    chunksUnloaded += unloadFarChunks(world);
+                }
 
                 if (freezeTime) {
                     world.setTime(6000);
@@ -240,7 +236,7 @@ public class EmptyServerOptimizer implements Listener {
     private int removeDroppedItems(World world) {
         int removed = 0;
         for (Entity entity : world.getEntities()) {
-            if (entity instanceof Item) {
+            if (entity instanceof Item && entity.getTicksLived() > 200) {
                 entity.remove();
                 removed++;
             }
@@ -253,11 +249,14 @@ public class EmptyServerOptimizer implements Listener {
         int spawnX = world.getSpawnLocation().getChunk().getX();
         int spawnZ = world.getSpawnLocation().getChunk().getZ();
 
-        for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
+        for (Chunk chunk : world.getLoadedChunks()) {
             int deltaX = Math.abs(chunk.getX() - spawnX);
             int deltaZ = Math.abs(chunk.getZ() - spawnZ);
 
             if (deltaX > 4 || deltaZ > 4) {
+                if (chunk.isForceLoaded() || chunk.getTileEntities().length > 0 || chunk.getEntities().length > 0) {
+                    continue;
+                }
                 if (chunk.unload(true)) {
                     chunksUnloaded++;
                 }

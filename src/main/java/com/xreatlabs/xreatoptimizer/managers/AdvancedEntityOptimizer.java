@@ -20,6 +20,7 @@ public class AdvancedEntityOptimizer {
     private final Map<UUID, EntityImportance> entityImportanceCache = new ConcurrentHashMap<>();
     private volatile boolean isRunning = false;
     private boolean stackFusionEnabled = true;
+    private boolean aiThrottlingEnabled = false;
 
     private enum EntityImportance {
         CRITICAL,
@@ -35,6 +36,7 @@ public class AdvancedEntityOptimizer {
 
     private void loadConfig() {
         stackFusionEnabled = plugin.getConfig().getBoolean("enable_stack_fusion", true);
+        aiThrottlingEnabled = plugin.getConfig().getBoolean("advanced_entity_optimizer.ai_throttling", false);
     }
 
     public void start() {
@@ -84,6 +86,10 @@ public class AdvancedEntityOptimizer {
         return isRunning;
     }
 
+    public boolean isRunning() {
+        return isRunning;
+    }
+
     private void runAdvancedOptimizations() {
         if (!isRunning) {
             return;
@@ -110,7 +116,7 @@ public class AdvancedEntityOptimizer {
         for (Entity entity : world.getEntities()) {
             if (entity instanceof Item) {
                 Item item = (Item) entity;
-                if (item.getPickupDelay() > 0) {
+                if (item.getPickupDelay() > 0 || item.getTicksLived() < 60) {
                     continue;
                 }
                 items.add(item);
@@ -147,7 +153,11 @@ public class AdvancedEntityOptimizer {
         List<ExperienceOrb> orbs = new ArrayList<>();
         for (Entity entity : world.getEntities()) {
             if (entity instanceof ExperienceOrb) {
-                orbs.add((ExperienceOrb) entity);
+                ExperienceOrb orb = (ExperienceOrb) entity;
+                if (orb.getTicksLived() < 40) {
+                    continue;
+                }
+                orbs.add(orb);
             }
         }
 
@@ -165,6 +175,10 @@ public class AdvancedEntityOptimizer {
                 }
 
                 if (!sameWorldAndNearby(base.getLocation(), candidate.getLocation(), 2.0)) {
+                    continue;
+                }
+
+                if (isNearPlayer(base.getLocation(), 4.0) || isNearPlayer(candidate.getLocation(), 4.0)) {
                     continue;
                 }
 
@@ -188,12 +202,26 @@ public class AdvancedEntityOptimizer {
             return false;
         }
 
+        if (isNearPlayer(first.getLocation(), 4.0) || isNearPlayer(second.getLocation(), 4.0)) {
+            return false;
+        }
+
         return first.getItemStack().isSimilar(second.getItemStack());
     }
 
     private boolean sameWorldAndNearby(Location first, Location second, double maxDistanceSquared) {
         return first.getWorld() != null && first.getWorld().equals(second.getWorld())
             && first.distanceSquared(second) <= maxDistanceSquared;
+    }
+
+    private boolean isNearPlayer(Location location, double radius) {
+        double radiusSquared = radius * radius;
+        for (Player player : location.getWorld().getPlayers()) {
+            if (player.getLocation().distanceSquared(location) <= radiusSquared) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int mergeIntoBase(Item base, Item candidate) {
@@ -214,12 +242,16 @@ public class AdvancedEntityOptimizer {
     }
 
     private void applyTickThrottling() {
+        if (!aiThrottlingEnabled) {
+            restoreAllAI();
+            return;
+        }
+
         for (World world : Bukkit.getWorlds()) {
             applyTickThrottlingToWorld(world);
         }
     }
 
-    /** Apply AI throttling to distant entities. */
     private void applyTickThrottlingToWorld(World world) {
         List<Player> players = world.getPlayers();
         if (players.isEmpty()) {
@@ -290,10 +322,8 @@ public class AdvancedEntityOptimizer {
         }
     }
 
-    /** Get distance tier adjusted for current TPS. */
     private double getDistanceTier(String tier, double tps) {
         double multiplier = 1.0;
-
         if (tps < 15.0) {
             multiplier = 0.5;
         } else if (tps < 17.0) {
@@ -383,10 +413,6 @@ public class AdvancedEntityOptimizer {
         } catch (Exception ignored) {
         }
         throttledEntities.remove(entityId);
-    }
-
-    public boolean isRunning() {
-        return isRunning;
     }
 
     public int getGroupCount() {

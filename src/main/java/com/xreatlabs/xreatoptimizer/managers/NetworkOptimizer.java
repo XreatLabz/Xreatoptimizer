@@ -87,26 +87,9 @@ public class NetworkOptimizer {
         }
 
         double tps = TPSUtils.getTPS();
-
         for (Player player : Bukkit.getOnlinePlayers()) {
             playerStats.computeIfAbsent(player, k -> new PlayerNetworkStats());
         }
-
-        if (plugin.getVersionAdapter().isVersionAtLeast(1, 14)) {
-            int targetSendDistance = tps > 19.0 ? 10 : tps > 17.0 ? 8 : 6;
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                try {
-                    java.lang.reflect.Method method = player.getClass().getMethod("setSendViewDistance", int.class);
-                    method.invoke(player, targetSendDistance);
-                } catch (NoSuchMethodException e) {
-                    break;
-                } catch (Exception e) {
-                    LoggerUtils.debug("Could not adjust send distance for " + player.getName() + ": " + e.getMessage());
-                }
-            }
-        }
-
-        playerStats.keySet().removeIf(player -> !player.isOnline());
 
         if (System.currentTimeMillis() % 60000 < 5000) {
             LoggerUtils.debug("Network optimization: " + Bukkit.getOnlinePlayers().size() +
@@ -177,7 +160,7 @@ public class NetworkOptimizer {
         return isRunning;
     }
 
-    public PlayerNetworkStats getPlayerStats(Player player) {
+    public Object getPlayerStats(Player player) {
         return playerStats.get(player);
     }
 

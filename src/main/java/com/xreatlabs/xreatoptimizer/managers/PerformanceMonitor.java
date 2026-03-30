@@ -262,6 +262,10 @@ public class PerformanceMonitor {
         return (int) metrics.getOrDefault("chunk_count", 0);
     }
 
+    public int getCurrentPlayerCount() {
+        return (int) metrics.getOrDefault("player_count", 0);
+    }
+
     private double getAverageTPS() {
         return tpsCount > 0 ? sumTps / tpsCount : 20.0;
     }

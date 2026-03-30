@@ -45,12 +45,11 @@ entity_limiter:
   default_entities_per_world: 500
 
 # ============================================================================
-# AUTO CLEAR - Automatic entity cleanup
+# AUTO CLEAR - Automatic projectile cleanup
 # ============================================================================
-# DISABLED BY DEFAULT - This will NOT remove any entities unless enabled
-# 
-# When enabled, only clears stuck arrows (very high threshold)
-# NEVER removes player-placed entities, mobs, dropped items, or XP
+# DISABLED BY DEFAULT - enable only if you want old excess arrows cleaned up
+#
+# When enabled, only clears excess arrows / spectral arrows above the threshold.
 auto_clear:
   enabled: false
   # Only arrows exceeding this count will be removed (very conservative)
@@ -86,14 +85,16 @@ empty_server:
   enabled: true
   # Wait time before applying optimizations after last player leaves (seconds)
   delay_seconds: 30
-  # Freeze time at noon and disable weather
-  freeze_time: true
+  # Freeze time/weather only if you explicitly want gameplay state changes while empty
+  freeze_time: false
   # Minimum view distance when server is empty
   min_view_distance: 2
   # Minimum simulation distance when server is empty
   min_simulation_distance: 2
   # Remove dropped items when server is empty (DISABLED by default - can cause item loss!)
   remove_items: false
+  # Unload far chunks when the server is empty (DISABLED by default - can affect chunk-based contraptions)
+  unload_far_chunks: false
 
 # Interval for periodic optimization cycles (in seconds)
 clear_interval_seconds: 600
@@ -104,10 +105,16 @@ enable_stack_fusion: true
 compress_ram_cache: true
 auto_tune: true
 
+advanced_entity_optimizer:
+  # Disabled by default - AI throttling can affect mob behavior and farms
+  ai_throttling: false
+
 memory_saver:
   enabled: true
   max_chunks_per_cycle: 6
   player_safety_radius_chunks: 8
+  # DISABLED by default - automatic chunk unloading can affect remote contraptions/farms
+  allow_chunk_unloads: false
 
 network_optimizer:
   enabled: true
@@ -132,7 +139,7 @@ predictive_loading:
   max_preloads_per_tick: 2
 
 # Item Drop Removal System
-# DISABLED BY DEFAULT - enable only if you want the plugin to delete ground items
+# DISABLED BY DEFAULT - enable only if you want the plugin to delete old ground items
 # Only affects dropped items, gives countdown warning before removal
 item_removal:
   enabled: false
@@ -180,8 +187,8 @@ web_dashboard:
   enabled: false
   # Port to run the web server on
   port: 8080
-  # Bind address (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
-  bind_address: "0.0.0.0"
+  # Bind address (use 127.0.0.1 unless you intentionally proxy it)
+  bind_address: "127.0.0.1"
   # Authentication token - set this to restrict dashboard access
   # Access via ?token=YOUR_TOKEN or Authorization: Bearer YOUR_TOKEN header
   # Leave empty to disable authentication (NOT recommended for public servers)

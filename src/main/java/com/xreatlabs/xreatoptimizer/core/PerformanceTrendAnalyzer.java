@@ -100,7 +100,7 @@ public class PerformanceTrendAnalyzer {
 
         isRunning = true;
 
-        analysisTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
+        analysisTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::runAnalysisCycle,
             20L,
@@ -124,7 +124,7 @@ public class PerformanceTrendAnalyzer {
         try {
             double currentTps = plugin.getPerformanceMonitor().getCurrentTPS();
             double currentMemory = plugin.getPerformanceMonitor().getCurrentMemoryPercentage();
-            int currentPlayers = Bukkit.getOnlinePlayers().size();
+            int currentPlayers = plugin.getPerformanceMonitor().getCurrentPlayerCount();
 
             long now = System.currentTimeMillis();
 

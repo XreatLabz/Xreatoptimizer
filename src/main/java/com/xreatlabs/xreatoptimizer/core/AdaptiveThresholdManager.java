@@ -39,7 +39,7 @@ public class AdaptiveThresholdManager {
     
     public void start() {
         if (plugin.getConfig().getBoolean("auto_tune", true)) {
-            tuningTask = plugin.getServer().getScheduler().runTaskTimerAsynchronously(
+            tuningTask = plugin.getServer().getScheduler().runTaskTimer(
                 plugin,
                 this::runAdjustmentCycle,
                 18000L,

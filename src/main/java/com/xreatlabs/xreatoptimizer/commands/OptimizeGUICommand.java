@@ -47,7 +47,6 @@ public class OptimizeGUICommand implements CommandExecutor {
         String profile = plugin.getOptimizationManager() != null
             ? plugin.getOptimizationManager().getCurrentProfile().name()
             : "AUTO";
-        boolean itemRemoval = plugin.getItemDropTracker() != null && plugin.getItemDropTracker().isEnabled();
         boolean dashboardEnabled = plugin.getConfig().getBoolean("web_dashboard.enabled", false);
 
         ItemStack statsItem = createItem(Material.COMPASS, ChatColor.AQUA + "Server Statistics",
@@ -70,7 +69,7 @@ public class OptimizeGUICommand implements CommandExecutor {
 
         ItemStack configItem = createItem(Material.CRAFTING_TABLE, ChatColor.WHITE + "Configuration",
             "Use /xreatopt reload after editing config.yml",
-            "Item cleanup: " + (itemRemoval ? ChatColor.YELLOW + "enabled" : ChatColor.GREEN + "disabled"),
+            "Item cleanup: " + (plugin.getItemDropTracker() != null && plugin.getItemDropTracker().isEnabled() ? ChatColor.YELLOW + "enabled" : ChatColor.GREEN + "disabled"),
             "Dashboard: " + (dashboardEnabled ? ChatColor.YELLOW + "enabled" : ChatColor.GREEN + "disabled"));
         gui.setItem(6, configItem);
 

@@ -4,20 +4,19 @@ import com.xreatlabs.xreatoptimizer.XreatOptimizer;
 import com.xreatlabs.xreatoptimizer.utils.LoggerUtils;
 import com.xreatlabs.xreatoptimizer.utils.MemoryUtils;
 import com.xreatlabs.xreatoptimizer.utils.TPSUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
-import java.util.ArrayList;
-import java.util.List;
 
+/**
+ * CPU/RAM monitor with non-destructive responses only.
+ *
+ * This class now only observes load and suggests safe memory cleanup. It no longer
+ * removes entities, changes world behavior, or toggles gameplay-affecting systems.
+ */
 public class AdvancedCPURAMOptimizer {
     private final XreatOptimizer plugin;
-    private BukkitTask optimizationTask;
+    private org.bukkit.scheduler.BukkitTask optimizationTask;
     private volatile boolean isRunning = false;
 
     private double peakCPUUsage = 0.0;
@@ -34,7 +33,7 @@ public class AdvancedCPURAMOptimizer {
             return;
         }
 
-        optimizationTask = Bukkit.getScheduler().runTaskTimer(
+        optimizationTask = org.bukkit.Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::runAdvancedOptimizations,
             40L,
@@ -63,12 +62,8 @@ public class AdvancedCPURAMOptimizer {
         long ramUsage = MemoryUtils.getUsedMemoryMB();
         double memoryPercentage = MemoryUtils.getMemoryUsagePercentage();
 
-        if (cpuUsage > peakCPUUsage) {
-            peakCPUUsage = cpuUsage;
-        }
-        if (ramUsage > peakRAMUsage) {
-            peakRAMUsage = ramUsage;
-        }
+        peakCPUUsage = Math.max(peakCPUUsage, cpuUsage);
+        peakRAMUsage = Math.max(peakRAMUsage, ramUsage);
 
         double cpuHighThreshold = 85;
         double cpuEmergencyThreshold = 95;
@@ -93,13 +88,13 @@ public class AdvancedCPURAMOptimizer {
                 ", RAM=" + String.format("%.1f", memoryPercentage) + "%");
 
             if (cpuUsage > cpuEmergencyThreshold || memoryPercentage > memEmergencyThreshold) {
-                applyEmergencyOptimizations(cpuUsage, memoryPercentage);
+                applyEmergencyOptimizations(memoryPercentage);
             } else {
-                applyAggressiveOptimizations(cpuUsage, memoryPercentage);
+                applyAggressiveOptimizations(memoryPercentage);
             }
         } else if (highUsageDetected && cpuUsage < 60 && memoryPercentage < 68) {
             highUsageDetected = false;
-            applyRecoveryOptimizations();
+            LoggerUtils.info("System recovered - returning to monitoring mode");
         }
 
         if (System.currentTimeMillis() % 60000 < 2000) {
@@ -109,141 +104,14 @@ public class AdvancedCPURAMOptimizer {
         }
     }
 
-    private void applyEmergencyOptimizations(double cpuUsage, double memoryPercentage) {
-        LoggerUtils.warn("Emergency optimization mode active - CPU: " + String.format("%.1f", cpuUsage) +
-            "% , RAM: " + String.format("%.1f", memoryPercentage) + "%");
-
-        int removedEntities = removeExcessEntitiesAggressively();
-        maximizeHibernateSettings();
-        reduceWorldActivity();
+    private void applyEmergencyOptimizations(double memoryPercentage) {
+        LoggerUtils.warn("Emergency optimization mode active - using non-destructive mitigation only");
         forceMemoryOptimizations(memoryPercentage);
-
-        if (removedEntities > 0) {
-            LoggerUtils.info("Emergency optimizer removed " + removedEntities + " excess projectiles.");
-        }
     }
 
-    private void applyAggressiveOptimizations(double cpuUsage, double memoryPercentage) {
-        LoggerUtils.debug("Aggressive optimization mode - CPU: " + String.format("%.1f", cpuUsage) +
-            "% , RAM: " + String.format("%.1f", memoryPercentage) + "%");
-
-        int removed = removeExcessEntities();
-        increaseHibernateRadius();
-        optimizeChunkLoading();
-        throttleEntityProcessing();
-
-        if (removed > 0) {
-            LoggerUtils.debug("Aggressive optimizer removed " + removed + " excess arrows.");
-        }
-    }
-
-    private void applyRecoveryOptimizations() {
-        LoggerUtils.info("System recovered - restoring normal optimization settings");
-        restoreNormalHibernateSettings();
-        restoreNormalEntityProcessing();
-    }
-
-    /** Remove excess entities (arrows only - passive mobs/items protected). */
-    private int removeExcessEntitiesAggressively() {
-        int removedTotal = 0;
-
-        for (World world : Bukkit.getWorlds()) {
-            removedTotal += removeEntitiesByType(world, EntityType.ARROW, 400);
-            removedTotal += removeEntitiesByType(world, EntityType.SPECTRAL_ARROW, 300);
-        }
-
-        return removedTotal;
-    }
-
-    /** Remove excess entities (arrows only). */
-    private int removeExcessEntities() {
-        int removedTotal = 0;
-
-        for (World world : Bukkit.getWorlds()) {
-            removedTotal += removeEntitiesByType(world, EntityType.ARROW, 500);
-        }
-
-        return removedTotal;
-    }
-
-    private int removeEntitiesByType(World world, EntityType type, int limit) {
-        List<Entity> entities = new ArrayList<>();
-        for (Entity entity : world.getEntities()) {
-            if (entity.getType() == type) {
-                entities.add(entity);
-            }
-        }
-
-        if (entities.size() <= limit) {
-            return 0;
-        }
-
-        int toRemove = entities.size() - limit;
-        int removed = 0;
-
-        for (Entity entity : entities) {
-            if (removed >= toRemove) {
-                break;
-            }
-
-            if (entity.getCustomName() != null || !entity.getPassengers().isEmpty()) {
-                continue;
-            }
-
-            entity.remove();
-            removed++;
-        }
-
-        return removed;
-    }
-
-    private void increaseHibernateRadius() {
-        HibernateManager hm = plugin.getHibernateManager();
-        if (hm != null && hm.isRunning()) {
-            hm.setRuntimeRadius(48);
-        }
-    }
-
-    private void maximizeHibernateSettings() {
-        HibernateManager hm = plugin.getHibernateManager();
-        if (hm != null && hm.isRunning()) {
-            hm.setRuntimeRadius(32);
-        }
-    }
-
-    private void restoreNormalHibernateSettings() {
-        HibernateManager hm = plugin.getHibernateManager();
-        if (hm != null && hm.isRunning()) {
-            hm.resetRuntimeRadius();
-        }
-    }
-
-    private void optimizeChunkLoading() {
-        MemorySaver ms = plugin.getMemorySaver();
-        if (ms != null && ms.isEnabled()) {
-            ms.clearCache();
-        }
-    }
-
-    private void throttleEntityProcessing() {
-        if (plugin.getEntityCullingManager() != null) {
-            plugin.getEntityCullingManager().setEnabled(true);
-        }
-        if (plugin.getAdvancedEntityOptimizer() != null && !plugin.getAdvancedEntityOptimizer().isEnabled()) {
-            plugin.getAdvancedEntityOptimizer().start();
-        }
-    }
-
-    private void restoreNormalEntityProcessing() {
-        if (plugin.getEntityCullingManager() != null) {
-            plugin.getEntityCullingManager().setEnabled(false);
-        }
-    }
-
-    private void reduceWorldActivity() {
-        if (plugin.getDynamicViewDistance() != null && plugin.getDynamicViewDistance().isRunning()) {
-            plugin.getDynamicViewDistance().applyProfileTarget(4);
-        }
+    private void applyAggressiveOptimizations(double memoryPercentage) {
+        LoggerUtils.debug("Aggressive optimization mode active - using non-destructive mitigation only");
+        forceMemoryOptimizations(memoryPercentage);
     }
 
     private void forceMemoryOptimizations(double memoryPercentage) {
@@ -254,14 +122,13 @@ public class AdvancedCPURAMOptimizer {
 
         if (TPSUtils.getTPS() > 15.0 && memoryPercentage >= 90.0) {
             MemoryUtils.suggestGarbageCollection();
-            LoggerUtils.debug("Suggested garbage collection during emergency optimization");
+            LoggerUtils.debug("Suggested garbage collection during high memory pressure");
         }
     }
 
     private double getSystemCPUUsage() {
         try {
             OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
-
             if (osBean instanceof com.sun.management.OperatingSystemMXBean) {
                 com.sun.management.OperatingSystemMXBean sunOsBean =
                     (com.sun.management.OperatingSystemMXBean) osBean;

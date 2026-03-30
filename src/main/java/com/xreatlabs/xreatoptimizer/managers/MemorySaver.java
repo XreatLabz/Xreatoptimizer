@@ -29,6 +29,7 @@ public class MemorySaver {
     private int memoryThresholdPercent = 80;
     private int maxChunksPerCycle = 6;
     private int playerSafetyRadiusChunks = 8;
+    private boolean allowChunkUnloads = false;
 
     private static class CachedChunkData {
         final long cacheTime;
@@ -54,10 +55,6 @@ public class MemorySaver {
             System.arraycopy(buffer, 0, result, 0, compressedSize);
             return result;
         }
-
-        public double getCompressionRatio() {
-            return originalSize > 0 ? (double) compressedData.length / originalSize : 1.0;
-        }
     }
 
     public MemorySaver(XreatOptimizer plugin) {
@@ -71,6 +68,7 @@ public class MemorySaver {
         memoryThresholdPercent = Math.max(40, Math.min(95, plugin.getConfig().getInt("memory_reclaim_threshold_percent", 80)));
         maxChunksPerCycle = Math.max(1, plugin.getConfig().getInt("memory_saver.max_chunks_per_cycle", 6));
         playerSafetyRadiusChunks = Math.max(3, plugin.getConfig().getInt("memory_saver.player_safety_radius_chunks", 8));
+        allowChunkUnloads = plugin.getConfig().getBoolean("memory_saver.allow_chunk_unloads", false);
     }
 
     public void start() {
@@ -114,7 +112,6 @@ public class MemorySaver {
         }
 
         double memoryPercent = MemoryUtils.getMemoryUsagePercentage();
-
         if (memoryPercent > memoryThresholdPercent) {
             LoggerUtils.debug("Memory pressure detected (" + memoryThresholdPercent + "% threshold), running optimization...");
 
@@ -131,11 +128,11 @@ public class MemorySaver {
 
             long usedMb = MemoryUtils.getUsedMemoryMB();
             long maxMb = MemoryUtils.getMaxMemoryMB();
-            OptimizationEvent.MemoryPressureEvent memoryEvent =
-                new OptimizationEvent.MemoryPressureEvent(memoryPercent, usedMb, maxMb, level);
-            XreatOptimizerAPI.fireEvent(memoryEvent);
+            XreatOptimizerAPI.fireEvent(new OptimizationEvent.MemoryPressureEvent(memoryPercent, usedMb, maxMb, level));
 
-            offloadIdleChunks();
+            if (allowChunkUnloads) {
+                offloadIdleChunks();
+            }
 
             if (TPSUtils.getTPS() > 18.0 && memoryPercent >= Math.max(85, memoryThresholdPercent + 5)) {
                 MemoryUtils.suggestGarbageCollection();
@@ -144,7 +141,6 @@ public class MemorySaver {
         }
 
         cleanupExpiredCache();
-
         LoggerUtils.debug("Memory usage: " + String.format("%.1f", MemoryUtils.getMemoryUsagePercentage()) + "%" +
             ", Cache size: " + chunkCache.size() + " entries");
     }
@@ -190,13 +186,23 @@ public class MemorySaver {
         }
 
         World world = chunk.getWorld();
-        if (!world.getPlayers().isEmpty()) {
-            for (org.bukkit.entity.Player player : world.getPlayers()) {
-                int dx = Math.abs(player.getLocation().getChunk().getX() - chunk.getX());
-                int dz = Math.abs(player.getLocation().getChunk().getZ() - chunk.getZ());
-                if (dx <= playerSafetyRadiusChunks && dz <= playerSafetyRadiusChunks) {
-                    return false;
-                }
+        if (world.getPlayers().isEmpty()) {
+            return false;
+        }
+
+        if (chunk.isForceLoaded()) {
+            return false;
+        }
+
+        if (chunk.getTileEntities().length > 0 || chunk.getEntities().length > 0) {
+            return false;
+        }
+
+        for (org.bukkit.entity.Player player : world.getPlayers()) {
+            int dx = Math.abs(player.getLocation().getChunk().getX() - chunk.getX());
+            int dz = Math.abs(player.getLocation().getChunk().getZ() - chunk.getZ());
+            if (dx <= playerSafetyRadiusChunks && dz <= playerSafetyRadiusChunks) {
+                return false;
             }
         }
 
@@ -205,13 +211,11 @@ public class MemorySaver {
 
     private void cacheChunkData(Chunk chunk) {
         byte[] chunkData = serializeChunkData(chunk);
-        CachedChunkData cached = new CachedChunkData(chunkData, compressionEnabled);
-        chunkCache.put(getChunkKey(chunk), new SoftReference<>(cached));
+        chunkCache.put(getChunkKey(chunk), new SoftReference<>(new CachedChunkData(chunkData, compressionEnabled)));
     }
 
     private byte[] serializeChunkData(Chunk chunk) {
-        String data = chunk.getWorld().getName() + "_" + chunk.getX() + "_" + chunk.getZ();
-        return data.getBytes();
+        return (chunk.getWorld().getName() + "_" + chunk.getX() + "_" + chunk.getZ()).getBytes();
     }
 
     private void cleanupExpiredCache() {
@@ -241,7 +245,6 @@ public class MemorySaver {
     public void markChunkAsAccessed(Chunk chunk) {
         String chunkKey = getChunkKey(chunk);
         recentlyAccessedChunks.add(chunkKey);
-
         Bukkit.getScheduler().runTaskLater(plugin, () -> recentlyAccessedChunks.remove(chunkKey), 20L * 60L * 5L);
     }
 

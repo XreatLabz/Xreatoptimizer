@@ -65,7 +65,7 @@ public class ReportCommand implements CommandExecutor {
                 writer.write("- Memory Usage: " + String.format("%.1f", monitor.getCurrentMemoryPercentage()) + "%\n");
                 writer.write("- Entities: " + monitor.getCurrentEntityCount() + "\n");
                 writer.write("- Chunks: " + monitor.getCurrentChunkCount() + "\n");
-                writer.write("- Players: " + org.bukkit.Bukkit.getOnlinePlayers().size() + "\n");
+                writer.write("- Players: " + monitor.getCurrentPlayerCount() + "\n");
             }
             
             writer.close();

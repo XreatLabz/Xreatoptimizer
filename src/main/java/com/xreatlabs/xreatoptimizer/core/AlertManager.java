@@ -94,7 +94,7 @@ public class AlertManager {
 
         isRunning = true;
 
-        detectionTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
+        detectionTask = Bukkit.getScheduler().runTaskTimer(
             plugin,
             this::runDetectionCycle,
             20L,
@@ -121,7 +121,7 @@ public class AlertManager {
             double memory = plugin.getPerformanceMonitor().getCurrentMemoryPercentage();
             int entities = plugin.getPerformanceMonitor().getCurrentEntityCount();
             int chunks = plugin.getPerformanceMonitor().getCurrentChunkCount();
-            int players = Bukkit.getOnlinePlayers().size();
+            int players = plugin.getPerformanceMonitor().getCurrentPlayerCount();
 
             MetricSnapshot snapshot = new MetricSnapshot(now, tps, memory, entities, chunks, players);
             history.addLast(snapshot);

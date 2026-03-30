@@ -6,9 +6,9 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
-import org.bukkit.event.entity.CreatureSpawnEvent;
 
 /** Entity spawn event handler */
 public class EntityEventListener implements Listener {
@@ -21,10 +21,6 @@ public class EntityEventListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntitySpawn(EntitySpawnEvent event) {
-        if (plugin.getPerformanceMonitor() != null) {
-            plugin.getPerformanceMonitor().incrementEntityCount();
-        }
-
         if (!plugin.getConfig().getBoolean("entity_limiter.enabled", false)) {
             return;
         }
@@ -32,50 +28,35 @@ public class EntityEventListener implements Listener {
         EntityType type = event.getEntityType();
         String typeName = type.name();
 
-        // NEVER block dropped items - they are managed by ItemDropTracker
         if (typeName.equals("DROPPED_ITEM") || typeName.equals("ITEM")) {
             return;
         }
 
-        // NEVER block experience orbs
         if (typeName.equals("EXPERIENCE_ORB")) {
             return;
         }
 
-        // NEVER block protected entity types (player-placed, vehicles, bosses, etc.)
-        if (ProtectedEntities.isProtectedType(type)) {
+        if (ProtectedEntities.isProtectedType(type) || ProtectedEntities.isProjectile(type)) {
             return;
         }
 
-        // NEVER block projectiles (would break bows, crossbows, tridents, snowballs, eggs, etc.)
-        if (ProtectedEntities.isProjectile(type)) {
-            return;
-        }
-
-        // NEVER block entities with custom names (player-named pets, etc.)
         if (event.getEntity().getCustomName() != null) {
             return;
         }
 
-        // Only apply limits to natural mob spawns when entity count exceeds limit
-        if (plugin.getOptimizationManager() != null) {
-            int currentEntities = event.getLocation().getWorld().getEntities().size();
-            // Use per-world config if available, fall back to global
-            String worldName = event.getLocation().getWorld().getName();
-            int maxEntities = plugin.getWorldConfig() != null ?
-                plugin.getWorldConfig().getMaxEntities(worldName) :
-                plugin.getConfig().getInt("entity_limiter.default_entities_per_world", 500);
+        int currentEntities = event.getLocation().getWorld().getEntities().size();
+        String worldName = event.getLocation().getWorld().getName();
+        int maxEntities = plugin.getWorldConfig() != null
+            ? plugin.getWorldConfig().getMaxEntities(worldName)
+            : plugin.getConfig().getInt("entity_limiter.default_entities_per_world", 500);
 
-            // Only cancel spawn if world is over its entity limit
-            if (currentEntities >= maxEntities) {
-                event.setCancelled(true);
-            }
+        if (currentEntities >= maxEntities) {
+            event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onItemSpawn(ItemSpawnEvent event) {
-        // Track item spawn time for timed removal system (only tracking, not blocking)
         if (plugin.getItemDropTracker() != null) {
             plugin.getItemDropTracker().trackItem(event.getEntity());
         }
@@ -83,38 +64,31 @@ public class EntityEventListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onCreatureSpawn(CreatureSpawnEvent event) {
-        // Check if creature spawn limiting is enabled
         if (!plugin.getConfig().getBoolean("entity_limiter.limit_creature_spawns", false)) {
-            return; // Disabled by default - don't interfere with gameplay
+            return;
         }
 
         EntityType type = event.getEntityType();
-
-        // NEVER block protected creatures
         if (ProtectedEntities.isProtectedType(type)) {
             return;
         }
 
-        // NEVER block named creatures (pets, named mobs)
         if (event.getEntity().getCustomName() != null) {
             return;
         }
 
-        // NEVER block spawner spawns, breeding, or player-triggered spawns
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
         if (isPlayerTriggeredSpawn(reason)) {
             return;
         }
 
-        // Only limit NATURAL spawns when enabled and world entity count exceeds limit
-        if (reason == CreatureSpawnEvent.SpawnReason.NATURAL && plugin.getOptimizationManager() != null) {
+        if (reason == CreatureSpawnEvent.SpawnReason.NATURAL) {
             int currentEntities = event.getLocation().getWorld().getEntities().size();
             String worldName = event.getLocation().getWorld().getName();
-            int maxEntities = plugin.getWorldConfig() != null ?
-                plugin.getWorldConfig().getMaxEntities(worldName) :
-                plugin.getConfig().getInt("entity_limiter.default_entities_per_world", 500);
+            int maxEntities = plugin.getWorldConfig() != null
+                ? plugin.getWorldConfig().getMaxEntities(worldName)
+                : plugin.getConfig().getInt("entity_limiter.default_entities_per_world", 500);
 
-            // Only cancel spawn if world is over its entity limit
             if (currentEntities >= maxEntities) {
                 event.setCancelled(true);
             }
@@ -123,7 +97,7 @@ public class EntityEventListener implements Listener {
 
     private boolean isPlayerTriggeredSpawn(CreatureSpawnEvent.SpawnReason reason) {
         if (reason == null) return false;
-        
+
         String name = reason.name();
         return name.equals("SPAWNER") ||
                name.equals("BREEDING") ||

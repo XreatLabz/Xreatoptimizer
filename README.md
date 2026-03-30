@@ -14,7 +14,7 @@ XreatOptimizer is a Bukkit/Spigot performance helper for Minecraft servers. It f
 - Uses a low-power mode when the server is empty
 - Merges nearby dropped items and XP orbs to reduce entity clutter
 - Offers optional item cleanup with warnings before despawn
-- Includes optional dashboard, Prometheus metrics, and predictive loading features
+- Includes optional dashboard, Prometheus metrics, predictive loading, and conservative advanced optimization modules
 
 ## Safe defaults
 
@@ -27,6 +27,8 @@ XreatOptimizer ships with the riskier features turned off by default.
 - predictive loading
 - redstone/hopper optimization
 - dashboard and Prometheus export
+- AI throttling
+- automatic chunk unloading
 
 **Enabled by default**
 - performance monitoring
@@ -100,6 +102,9 @@ metrics:
 
 - `hibernate` currently works as **conservative distant-chunk tracking**. It does **not** remove and respawn entities.
 - `item_removal` only affects dropped ground items and warns players before removal.
+- AI throttling, predictive loading, and automatic chunk unloading are **off by default** because they can affect mob behavior or remote contraptions if used aggressively.
+- The redstone/hopper module is monitoring-first and does not throttle farms or sorters by default.
+- Auto clear only targets excess arrows when enabled; it does not purge general entities.
 - If you enable the web dashboard publicly, set an auth token first.
 - If you already run other cleanup or optimization plugins, test the combination on a staging server before production.
 
